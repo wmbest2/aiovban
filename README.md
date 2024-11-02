@@ -1,5 +1,7 @@
 # VBAN Protocol Wrapper
 
+[![Currently Under Development - WIP](https://img.shields.io/badge/Currently_Under_Development-WIP-yellow)](https://)
+
 ## Overview
 
 This project aims to create a modern, ergonomic wrapper around the VBAN protocol. By leveraging modern Python tools such as dataclasses and asyncio, this wrapper provides a simple and efficient interface for working with VBAN.

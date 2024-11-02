@@ -46,21 +46,7 @@ print(packet.header.samples_per_frame)  # Output: 256
 
 Using asyncio for non-blocking operations:
 
-```python
-import asyncio
-from asyncvban.asyncio import AsyncVBANClient
-
-# ... VBANAudioPlayer setup (see examples/audio_receiver.py)
-
-client = AsyncVBANClient("bill.local", 6980, command_stream='Command1', audio_streams_in=['Windows Mic Out'])
-receiver = VBANAudioPlayer(sample_rate=VBANSampleRate.RATE_44100, channels=2, client=client)
-
-async def run_loop():
-    await client.connect()
-    await receiver.listen()
-
-asyncio.run(run_loop())
-```
+https://github.com/wmbest2/asyncvban/blob/11ff51c2bf7d7025bfeb3ba6ac133162a07aac1e/example/audio_receiver.py#L88-L95
 
 ## Contributing
 

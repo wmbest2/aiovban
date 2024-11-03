@@ -1,8 +1,7 @@
-import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
-from asyncvban.asyncio.streams import VBANIncomingStream, VBANTextStream, VBANCommandStream
+from asyncvban.asyncio.streams import VBANIncomingStream, VBANTextStream, VBANCommandStream, VBANStream
 from asyncvban.packet import VBANPacket
 
 
@@ -15,10 +14,10 @@ class VBANDevice:
     _client: Any = None
     _streams: dict = field(default_factory=dict)
 
-    def handle_packet(self, packet: VBANPacket):
-        stream = self._streams.get(packet.header.streamname)
-        if stream:
-            asyncio.create_task(stream.handle_packet(packet))
+    async def handle_packet(self, packet: VBANPacket):
+        stream: VBANStream = self._streams.get(packet.header.streamname)
+        if stream and isinstance(stream, VBANIncomingStream):
+            await stream.handle_packet(packet)
 
     def receive_stream(self, stream_name: str):
         stream = VBANIncomingStream(stream_name, queue_size=self.default_stream_size)

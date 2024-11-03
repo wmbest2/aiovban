@@ -28,15 +28,14 @@ class VBANBaseProtocol(asyncio.DatagramProtocol):
 
 @dataclass
 class VBANListenerProtocol(VBANBaseProtocol):
+    loop: asyncio.BaseEventLoop = asyncio.get_running_loop()
+
     def connection_made(self, transport):
         print(f"Connection made to {transport}")
 
-    async def _unpack(self, data, addr):
-        packet = VBANPacket.unpack(data)
-        await self.client.process_packet(addr[0], packet)
-
     def datagram_received(self, data, addr):
-        asyncio.create_task(self._unpack(data, addr))
+        packet = VBANPacket.unpack(data)
+        asyncio.create_task(self.client.process_packet(addr[0], packet))
 
 @dataclass
 class VBANSenderProtocol(VBANBaseProtocol):

@@ -31,9 +31,10 @@ PING_STRUCT_FORMAT = "<LLLLLLLBBBB8s8s8s8s64s32sHH64s64s64s64s128s128s"
 class Ping:
     deviceType: DeviceType
     features: Features
-    featureExtra: int
-    colorRGB: str
     version: str
+
+    featureExtra: int = 0
+    colorRGB: str = "0x000000"
     preferredRate: VBANSampleRate = None
     minRate: VBANSampleRate = VBANSampleRate.RATE_6000
     maxRate: VBANSampleRate = VBANSampleRate.RATE_705600

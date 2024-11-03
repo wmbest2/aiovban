@@ -17,7 +17,7 @@ This project aims to create a modern, ergonomic wrapper around the VBAN protocol
 To install the package, use pip:
 
 ```sh
-pip install asyncvban
+pip install aiovban
 ```
 
 ## Usage
@@ -27,8 +27,8 @@ pip install asyncvban
 Here's a basic example of how to use the VBAN wrapper:
 
 ```python
-from asyncvban import VBANAudioHeader, VBANPacket
-from asyncvban.packet import VBANSampleRate
+from aiovban import VBANAudioHeader, VBANPacket
+from aiovban import VBANSampleRate
 
 # Create a VBAN audio header
 audio_header = VBANAudioHeader(sample_rate=VBANSampleRate.RATE_44100, channels=17, samples_per_frame=3,

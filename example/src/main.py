@@ -1,11 +1,11 @@
 import asyncio
 
-from asyncvban.asyncio import AsyncVBANClient
-from asyncvban.enums import VBANBaudRate
-from asyncvban.packet import VBANPacket
-from asyncvban.packet.body.service import RTPacketBodyType0, Ping, DeviceType, Features
-from asyncvban.packet.headers.service import VBANServiceHeader, ServiceType, PingFunctions
-from asyncvban.packet.headers.text import VBANTextHeader
+from src.aiovban.asyncio import AsyncVBANClient
+from aiovban.src import VBANBaudRate
+from src.aiovban import VBANPacket
+from src.aiovban import RTPacketBodyType0, DeviceType, Ping, Features
+from src.aiovban import VBANServiceHeader, ServiceType, PingFunctions
+from src.aiovban.packet.headers.text import VBANTextHeader
 
 
 async def main():

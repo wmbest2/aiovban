@@ -1,0 +1,23 @@
+[project]
+name = "aiovban_pyaudio"
+version = "0.1.0"
+authors = [
+  { name="William Best", email="wmbest2@gmail.com" },
+]
+description = "A PyAudio wrapper for aiovban"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "aiovban",
+    "pyaudio"
+]
+
+[project.urls]
+Homepage = "https://github.com/pypa/sampleproject"
+Issues = "https://github.com/pypa/sampleproject/issues"

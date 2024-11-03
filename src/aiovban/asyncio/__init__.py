@@ -5,7 +5,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .device import VBANDevice
-
+from ..packet import VBANPacket
+from ..packet.body.service import DeviceType, Features
+from ..packet.headers.service import VBANServiceHeader, ServiceType, PingFunctions
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +42,7 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
         device: VBANDevice = self._registered_devices.get(address)
         if device:
             await device.handle_packet(address, packet)
+
 
     def register_device(self, address: str, port: int = 6980):
         ip_address = socket.gethostbyname(address)

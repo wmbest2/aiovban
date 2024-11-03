@@ -139,3 +139,10 @@ class VBANBaudRate(enum.Enum):
 
     def __int__(self) -> int:
         return self.key
+
+class BackPressureStrategy(enum.Enum):
+    DROP = enum.auto()         # Drop packets when queue is full
+    DRAIN_OLDEST = enum.auto() # Drain oldest packets until queue is half full
+    BLOCK = enum.auto()        # Block until there is space in the queue
+    RAISE = enum.auto()        # Raise an exception when queue is full
+

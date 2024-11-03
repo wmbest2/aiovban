@@ -1,9 +1,13 @@
 import asyncio
+import logging
 import socket
 from dataclasses import dataclass, field
 from typing import Any
 
 from .device import VBANDevice
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -39,7 +43,7 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
 
     def register_device(self, address: str, port: int = 6980):
         ip_address = socket.gethostbyname(address)
-        self._registered_devices[ip_address] = VBANDevice(ip_address, port, _client=self)
+        self._registered_devices[ip_address] = VBANDevice(ip_address, port, _client=self, default_stream_size=self.default_queue_size)
         return self._registered_devices[ip_address]
 
     def devices(self):

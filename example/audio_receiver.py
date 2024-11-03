@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import sys
 from chunk import Chunk
 from dataclasses import dataclass, field
 from enum import Enum
@@ -8,7 +9,7 @@ import pyaudio
 
 from asyncvban.asyncio import AsyncVBANClient
 from asyncvban.asyncio.streams import VBANIncomingStream
-from asyncvban.enums import VBANSampleRate
+from asyncvban.enums import VBANSampleRate, BackPressureStrategy
 from asyncvban.packet import VBANPacket, VBANHeader
 from asyncvban.packet.body.service import RTPacketBodyType0
 from asyncvban.packet.headers.audio import VBANAudioHeader, BitResolution
@@ -88,6 +89,17 @@ class VBANAudioPlayer:
         self._pyaudio.terminate()
 
 
+def setup_logging():
+    import logging
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    root.addHandler(handler)
+
+
 async def run_loop():
     client = AsyncVBANClient(ignore_audio_streams=False)
     asyncio.create_task(client.listen('0.0.0.0', 6980)) # Listen for all incoming packets
@@ -95,7 +107,7 @@ async def run_loop():
     windows_host = client.register_device('bill.local', 6980)
     windows_mic_out = windows_host.receive_stream('Windows Mic Out')
 
-    command_stream = await windows_host.command_stream(30, 'Command1')
+    command_stream = await windows_host.command_stream(30, 'Command1', back_pressure_strategy=BackPressureStrategy.DRAIN_OLDEST)
     await command_stream.send_text('Strip[0].Gain = 0.5;')
     await asyncio.sleep(1)
     await command_stream.send_text('Command.Restart = 1;')
@@ -111,4 +123,5 @@ async def run_loop():
 for i in range(pyaudio.PyAudio().get_device_count()):
     print(pyaudio.PyAudio().get_device_info_by_index(i))
 
+setup_logging()
 asyncio.run(run_loop())

@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .streams import VBANIncomingStream, VBANTextStream, VBANCommandStream, VBANStream
+from ..enums import BackPressureStrategy
 from ..packet import VBANPacket
 
 
@@ -22,8 +23,8 @@ class VBANDevice:
             print(f"Received packet for unregistered stream {packet.header.streamname} from {address}")
             print(packet.header)
 
-    def receive_stream(self, stream_name: str):
-        stream = VBANIncomingStream(stream_name, queue_size=self.default_stream_size)
+    def receive_stream(self, stream_name: str, back_pressure_strategy=BackPressureStrategy.DROP):
+        stream = VBANIncomingStream(stream_name, queue_size=self.default_stream_size, _back_pressure_strategy=back_pressure_strategy)
         self._streams[stream_name] = stream
         return stream
 
@@ -32,8 +33,14 @@ class VBANDevice:
         self._streams[stream_name] = stream
         return stream
 
-    async def command_stream(self, update_interval: int, stream_name: str):
-        stream = VBANCommandStream(stream_name, queue_size=self.default_stream_size, update_interval=update_interval, _client=self._client)
+    async def command_stream(self, update_interval: int, stream_name: str, back_pressure_strategy=BackPressureStrategy.DROP):
+        stream = VBANCommandStream(
+            name = stream_name,
+            queue_size=20,
+            update_interval=update_interval,
+            _back_pressure_strategy=back_pressure_strategy,
+            _client=self._client
+        )
 
         await stream.connect(self.address, self.port)
 

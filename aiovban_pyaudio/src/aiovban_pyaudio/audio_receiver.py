@@ -44,6 +44,8 @@ async def run_loop():
 for i in range(pyaudio.PyAudio().get_device_count()):
     print(pyaudio.PyAudio().get_device_info_by_index(i))
 
-setproctitle('VBAN Audio Receiver')
-setup_logging()
-asyncio.run(run_loop())
+
+if __name__ == '__main__':
+    setproctitle('VBAN Audio Receiver')
+    setup_logging()
+    asyncio.run(run_loop())

@@ -1,10 +1,10 @@
 from unittest import TestCase
 
-from ...packet.headers import VBANHeader
-from ...packet.headers.audio import VBANAudioHeader
+from . import VBANHeader
+from .audio import VBANAudioHeader
+from .service import VBANServiceHeader
+from .subprotocol import VBANSubProtocolTypes
 from ...enums import VBANSampleRate
-from ...packet.headers.service import VBANServiceHeader
-from ...packet.headers.subprotocol import VBANSubProtocolTypes
 
 
 class TestVBANSubProtocol(TestCase):

@@ -1,7 +1,7 @@
 import struct
 from dataclasses import dataclass, field
 
-from ...packet.headers.subprotocol import VBANSubProtocolTypes
+from .subprotocol import VBANSubProtocolTypes
 from ...util.synthetics import SyntheticMixin
 
 

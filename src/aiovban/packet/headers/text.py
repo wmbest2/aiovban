@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from enum import IntEnum
 
+from . import VBANHeader
+from .subprotocol import VBANSubProtocolTypes
 from ...enums import VBANBaudRate
-from ...packet.headers import VBANHeader, VBANSubProtocolTypes
 from ...util.synthetics import subprotocol_data, byte_c, byte_b, subprotocol
 
 class VBANTextStreamType(IntEnum):

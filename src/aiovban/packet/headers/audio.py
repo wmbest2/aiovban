@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from enum import IntEnum
 
+from . import VBANHeader
+from .subprotocol import VBANSubProtocolTypes
 from ...enums import VBANSampleRate
-from ...packet.headers import VBANHeader
-from ...packet.headers.subprotocol import VBANSubProtocolTypes
 from ...util.synthetics import subprotocol_data, byte_a, byte_b, byte_c, subprotocol
 
 class BitResolution(IntEnum):

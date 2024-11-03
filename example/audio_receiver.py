@@ -10,6 +10,7 @@ from asyncvban.asyncio import AsyncVBANClient
 from asyncvban.asyncio.streams import VBANIncomingStream
 from asyncvban.enums import VBANSampleRate
 from asyncvban.packet import VBANPacket, VBANHeader
+from asyncvban.packet.body.service import RTPacketBodyType0
 from asyncvban.packet.headers.audio import VBANAudioHeader, BitResolution
 
 
@@ -98,6 +99,9 @@ async def run_loop():
     await command_stream.send_text('Strip[0].Gain = 0.5;')
     await asyncio.sleep(1)
     await command_stream.send_text('Command.Restart = 1;')
+    print(await command_stream.get_packet())
+    print(RTPacketBodyType0.unpack((await command_stream.get_packet()).body))
+
 
     receiver = VBANAudioPlayer(sample_rate=VBANSampleRate.RATE_44100, channels=2, stream=windows_mic_out)
 

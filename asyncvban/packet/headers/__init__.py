@@ -26,7 +26,7 @@ class VBANHeader(SyntheticMixin):
     @classmethod
     def unpack(cls, data: bytes):
         (sub, sub_data) = data[4] & 0xE0, data[4] & 0x1F
-        from asyncvban.packet.headers.mapping import VBANSubProtocolMapping
+        from ...packet.headers.mapping import VBANSubProtocolMapping
         subclass = VBANSubProtocolMapping(sub).header_type
         obj = cls.__new__(subclass) # Create bare type
         obj.__post_init__()         # Initialize synthetic properties

@@ -18,7 +18,10 @@ class VBANStream:
 class VBANIncomingStream(VBANStream):
     queue_size: int = 100
 
-    _queue: Queue = Queue(maxsize=queue_size)
+    _queue: Queue = field(default_factory=Queue, init=False)
+
+    def __post_init__(self):
+        self._queue = asyncio.Queue(self.queue_size)
 
     async def handle_packet(self, packet: VBANPacket):
         asyncio.create_task(self._queue.put(packet))
@@ -40,7 +43,7 @@ class VBANOutgoingStream(VBANStream):
         loop = loop or asyncio.get_running_loop()
         self._address = address
         self._port = port
-        from asyncvban.asyncio.protocol import VBANSenderProtocol
+        from .protocol import VBANSenderProtocol
         _, self._protocol = await loop.create_datagram_endpoint(
             lambda: VBANSenderProtocol(self._client),
             remote_addr=(address, port),

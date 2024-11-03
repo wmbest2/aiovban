@@ -20,7 +20,7 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
 
         # Create a socket and set the options
         try:
-            from asyncvban.asyncio.protocol import VBANListenerProtocol
+            from .protocol import VBANListenerProtocol
             _, proto = await loop.create_datagram_endpoint(
                 lambda: VBANListenerProtocol(self),
                 local_addr=(address, port),
@@ -35,7 +35,7 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
     async def process_packet(self, address, packet):
         device: VBANDevice = self._registered_devices.get(address)
         if device:
-            await device.handle_packet(packet)
+            await device.handle_packet(address, packet)
 
     def register_device(self, address: str, port: int = 6980):
         ip_address = socket.gethostbyname(address)

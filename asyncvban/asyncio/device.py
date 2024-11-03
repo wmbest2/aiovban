@@ -14,10 +14,13 @@ class VBANDevice:
     _client: Any = None
     _streams: dict = field(default_factory=dict)
 
-    async def handle_packet(self, packet: VBANPacket):
+    async def handle_packet(self, address, packet: VBANPacket):
         stream: VBANStream = self._streams.get(packet.header.streamname)
         if stream and isinstance(stream, VBANIncomingStream):
             await stream.handle_packet(packet)
+        else:
+            print(f"Received packet for unregistered stream {packet.header.streamname} from {address}")
+            print(packet.header)
 
     def receive_stream(self, stream_name: str):
         stream = VBANIncomingStream(stream_name, queue_size=self.default_stream_size)
@@ -35,4 +38,5 @@ class VBANDevice:
         await stream.connect(self.address, self.port)
 
         self._streams[stream_name] = stream
+        self._streams['Voicemeeter-RTP'] = stream # Responses come to this stream
         return stream

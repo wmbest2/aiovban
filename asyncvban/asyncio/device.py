@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from asyncvban.asyncio.streams import VBANIncomingStream, VBANTextStream, VBANCommandStream, VBANStream
-from asyncvban.packet import VBANPacket
+from .streams import VBANIncomingStream, VBANTextStream, VBANCommandStream, VBANStream
+from ..packet import VBANPacket
 
 
 @dataclass

@@ -1,8 +1,8 @@
-from dataclasses import dataclass, field, KW_ONLY
 import struct
+from dataclasses import dataclass, field
 
-from asyncvban.packet.headers.subprotocol import VBANSubProtocolTypes
-from asyncvban.util.synthetics import byte_b, byte_c, SyntheticMixin, subprotocol_data
+from ...packet.headers.subprotocol import VBANSubProtocolTypes
+from ...util.synthetics import SyntheticMixin
 
 
 @dataclass(kw_only=True)

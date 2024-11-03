@@ -1,9 +1,9 @@
 from enum import EnumMeta, Enum
 
-from asyncvban.packet.headers.audio import VBANAudioHeader
-from asyncvban.packet.headers.service import VBANServiceHeader
-from asyncvban.packet.headers.subprotocol import VBANSubProtocolTypes
-from asyncvban.packet.headers.text import VBANTextHeader
+from ...packet.headers.audio import VBANAudioHeader
+from ...packet.headers.service import VBANServiceHeader
+from ...packet.headers.subprotocol import VBANSubProtocolTypes
+from ...packet.headers.text import VBANTextHeader
 
 
 class VBANSubProtocolMappingMeta(EnumMeta):

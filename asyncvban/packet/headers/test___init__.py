@@ -1,10 +1,10 @@
 from unittest import TestCase
 
-from asyncvban.packet.headers import VBANHeader
-from asyncvban.packet.headers.audio import VBANAudioHeader
-from asyncvban.enums import VBANSampleRate
-from asyncvban.packet.headers.service import VBANServiceHeader
-from asyncvban.packet.headers.subprotocol import VBANSubProtocolTypes
+from ...packet.headers import VBANHeader
+from ...packet.headers.audio import VBANAudioHeader
+from ...enums import VBANSampleRate
+from ...packet.headers.service import VBANServiceHeader
+from ...packet.headers.subprotocol import VBANSubProtocolTypes
 
 
 class TestVBANSubProtocol(TestCase):

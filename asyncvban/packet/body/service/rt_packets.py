@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 import struct
 
-from asyncvban.enums import VBANSampleRate, State, VoicemeeterType
+from ....enums import VBANSampleRate, State, VoicemeeterType
 
 
 @dataclass

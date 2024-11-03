@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from enum import IntEnum
 
-from asyncvban.packet.headers import VBANHeader
-from asyncvban.packet.headers.subprotocol import VBANSubProtocolTypes
-from asyncvban.util.synthetics import byte_a, byte_b, subprotocol, byte_c
+from ...packet.headers import VBANHeader
+from ...packet.headers.subprotocol import VBANSubProtocolTypes
+from ...util.synthetics import byte_a, byte_b, subprotocol, byte_c
 
 class ServiceType(IntEnum):
     Identification = 0x00

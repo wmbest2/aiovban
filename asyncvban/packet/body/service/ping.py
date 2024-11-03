@@ -2,7 +2,7 @@ import struct
 from dataclasses import dataclass, field
 from enum import Flag
 
-from asyncvban.enums import VBANSampleRate
+from ....enums import VBANSampleRate
 
 
 class DeviceType(Flag):

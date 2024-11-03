@@ -3,7 +3,7 @@ import socket
 from dataclasses import dataclass, field
 from typing import Any
 
-from asyncvban.asyncio.device import VBANDevice
+from .device import VBANDevice
 
 
 @dataclass

@@ -3,10 +3,10 @@ from asyncio import Queue
 from dataclasses import dataclass, field
 from typing import Any
 
-from asyncvban.enums import VBANBaudRate
-from asyncvban.packet import VBANPacket
-from asyncvban.packet.headers.service import VBANServiceHeader, ServiceType
-from asyncvban.packet.headers.text import VBANTextHeader
+from ..enums import VBANBaudRate
+from ..packet import VBANPacket
+from ..packet.headers.service import VBANServiceHeader, ServiceType
+from ..packet.headers.text import VBANTextHeader
 
 
 @dataclass

@@ -1,6 +1,5 @@
 import functools
 from dataclasses import Field, field
-from email.policy import default
 
 SYNTHETIC_NAME = "synthetic_name"
 

@@ -3,8 +3,8 @@ from asyncio import Future
 from dataclasses import dataclass, field
 from typing import Any
 
-from asyncvban.asyncio import AsyncVBANClient
-from asyncvban.packet import VBANPacket
+from . import AsyncVBANClient
+from ..packet import VBANPacket
 
 
 @dataclass

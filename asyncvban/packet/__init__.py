@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from asyncvban.packet.headers import VBANHeader
+from ..packet.headers import VBANHeader
 
 
 @dataclass

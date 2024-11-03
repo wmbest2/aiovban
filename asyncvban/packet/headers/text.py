@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from enum import IntEnum
 
-from asyncvban.enums import VBANBaudRate
-from asyncvban.packet.headers import VBANHeader, VBANSubProtocolTypes
-from asyncvban.util.synthetics import subprotocol_data, byte_c, byte_b, subprotocol
+from ...enums import VBANBaudRate
+from ...packet.headers import VBANHeader, VBANSubProtocolTypes
+from ...util.synthetics import subprotocol_data, byte_c, byte_b, subprotocol
 
 class VBANTextStreamType(IntEnum):
     ASCII       = 0x00

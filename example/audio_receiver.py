@@ -4,7 +4,7 @@ from enum import Enum
 
 import pyaudio
 
-from asyncvban.asyncio import AsyncVBANClient
+from asyncvban.asyncio import AsyncVBANClient, VBANIncomingStream
 from asyncvban.enums import VBANSampleRate
 from asyncvban.packet import VBANPacket
 from asyncvban.packet.headers.audio import VBANAudioHeader, BitResolution
@@ -25,7 +25,7 @@ class VBANPyAudioFormatMapping(Enum):
 
 @dataclass
 class VBANAudioPlayer:
-    client: AsyncVBANClient
+    stream: VBANIncomingStream
 
     sample_rate: VBANSampleRate = VBANSampleRate.RATE_44100
     channels: int = 1
@@ -67,7 +67,7 @@ class VBANAudioPlayer:
     async def listen(self):
         self._stream.start_stream()
         async def wait_for_packet():
-            packet = await self.client.receive_packet()
+            packet = await self.stream.get_packet()
             return packet if type(packet.header) == VBANAudioHeader else None
 
         async def gather_frames(frame_count):
@@ -85,11 +85,20 @@ class VBANAudioPlayer:
         self._pyaudio.terminate()
 
 
-client = AsyncVBANClient("bill.local", 6980, command_stream='Command1', audio_streams_in=['Windows Mic Out'])
-receiver = VBANAudioPlayer(sample_rate=VBANSampleRate.RATE_44100, channels=2, client=client)
-
 async def run_loop():
-    await client.connect()
+    client = AsyncVBANClient(ignore_audio_streams=False)
+    asyncio.create_task(client.listen('0.0.0.0', 6980)) # Listen for all incoming packets
+
+    windows_host = client.register_device('bill.local', 6980)
+    windows_mic_out = windows_host.receive_stream('Windows Mic Out')
+
+    command_stream = await windows_host.command_stream(30, 'Command1')
+    await command_stream.send_text('Strip[0].Gain = 0.5;')
+    await asyncio.sleep(1)
+    await command_stream.send_text('Command.Restart = 1;')
+
+    receiver = VBANAudioPlayer(sample_rate=VBANSampleRate.RATE_44100, channels=2, stream=windows_mic_out)
+
     await receiver.listen()
 
 asyncio.run(run_loop())

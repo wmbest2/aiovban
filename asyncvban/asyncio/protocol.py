@@ -3,8 +3,6 @@ from asyncio import Future
 from dataclasses import dataclass, field
 from typing import Any
 
-from setuptools.msvc import winreg
-
 from asyncvban.asyncio import AsyncVBANClient
 from asyncvban.packet import VBANPacket
 

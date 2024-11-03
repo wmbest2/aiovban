@@ -4,7 +4,8 @@ from enum import Enum
 
 import pyaudio
 
-from asyncvban.asyncio import AsyncVBANClient, VBANIncomingStream
+from asyncvban.asyncio import AsyncVBANClient
+from asyncvban.asyncio.streams import VBANIncomingStream
 from asyncvban.enums import VBANSampleRate
 from asyncvban.packet import VBANPacket
 from asyncvban.packet.headers.audio import VBANAudioHeader, BitResolution

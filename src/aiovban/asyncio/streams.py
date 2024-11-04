@@ -39,7 +39,7 @@ class VBANIncomingStream(VBANStream):
                 if self._back_pressure_strategy == BackPressureStrategy.RAISE:
                     raise asyncio.QueueFull
                 else:
-                    logger.info(f"Queue full for stream {self.name}. Dropping packet")
+                    logger.debug(f"Queue full for stream {self.name}. Dropping packet")
 
 
         if self._back_pressure_strategy == BackPressureStrategy.DRAIN_OLDEST:
@@ -56,7 +56,7 @@ class VBANIncomingStream(VBANStream):
             except asyncio.QueueEmpty:
                 pass
         self._mutex.release()
-        logger.info(f"Drained {int(self.queue_size / 2)} packets from stream {self.name}")
+        logger.debug(f"Drained {int(self.queue_size / 2)} packets from stream {self.name}")
 
     async def get_packet(self) -> VBANPacket:
         return await self._queue.get()
@@ -81,7 +81,7 @@ class VBANOutgoingStream(VBANStream):
         )
 
     async def send_packet(self, packet: VBANPacket):
-        logger.info(f"Sending packet with header type {packet.header.__class__.__name__}")
+        logger.debug(f"Sending packet with header type {packet.header.__class__.__name__}")
         self._framecounter += 1
         packet.header.framecount = self._framecounter
         self._protocol.send_packet(packet, (self._address, self._port))

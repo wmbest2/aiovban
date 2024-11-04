@@ -1,10 +1,15 @@
 import asyncio
+import logging
 from asyncio import Future
 from dataclasses import dataclass, field
 from typing import Any
 
 from . import AsyncVBANClient
-from ..packet import VBANPacket
+from ..packet import VBANPacket, VBANHeader
+from ..packet.headers import VBANHeaderException
+
+
+logger = logging.getLogger(__package__)
 
 
 @dataclass
@@ -31,11 +36,14 @@ class VBANListenerProtocol(VBANBaseProtocol):
     loop: asyncio.BaseEventLoop = asyncio.get_running_loop()
 
     def connection_made(self, transport):
-        print(f"Connection made to {transport}")
+        logger.info(f"Connection made to {transport}")
 
     def datagram_received(self, data, addr):
-        packet = VBANPacket.unpack(data)
-        asyncio.create_task(self.client.process_packet(addr[0], packet))
+        try:
+            packet = VBANPacket.unpack(data)
+            asyncio.create_task(self.client.process_packet(addr[0], packet))
+        except VBANHeaderException as e:
+            logger.info(f"Error unpacking packet: {e}")
 
 @dataclass
 class VBANSenderProtocol(VBANBaseProtocol):
@@ -43,7 +51,7 @@ class VBANSenderProtocol(VBANBaseProtocol):
 
     def connection_made(self, transport):
         self._transport = transport
-        print(f"Connection made to {transport.get_extra_info('peername')}")
+        logger.info(f"Connection made to {transport.get_extra_info('peername')}")
 
     def send_packet(self, data: VBANPacket, addr):
         if self._transport:

@@ -1,9 +1,12 @@
 import functools
+import logging
 from dataclasses import Field, field
 
 SYNTHETIC_NAME = "synthetic_name"
 
 MASK = 'mask'
+
+logger = logging.getLogger(__package__)
 
 
 def named_synthetic(name, mask=0xff, offset=0, **kwargs) -> Field:
@@ -51,7 +54,7 @@ class SyntheticMixin:
                     try:
                         setattr(s, f.name, f.type((int(value) & f.metadata[MASK]) + f.metadata["offset"]))
                     except TypeError as e:
-                        print(f"Error with field {f.name} for value {value}", e)
+                        logger.error(f"Error with field {f.name} for value {value}", e)
 
             def deleter(s, fields=fields):
                 for f in fields:

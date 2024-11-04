@@ -1,11 +1,7 @@
 import asyncio
 import sys
 
-import pyaudio
 from setproctitle import setproctitle
-
-import os
-print(os.getcwd())
 
 from aiovban.asyncio import AsyncVBANClient
 from aiovban.enums import VBANSampleRate, BackPressureStrategy
@@ -18,6 +14,7 @@ def setup_logging():
     root.setLevel(logging.INFO)
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(logging.INFO)
+    print('Setting up logging at level INFO')
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     handler.setFormatter(formatter)
     root.addHandler(handler)
@@ -40,7 +37,7 @@ async def run_loop():
     print((await rt_stream.get_packet()).body)
 
 
-    receiver = VBANAudioPlayer(sample_rate=VBANSampleRate.RATE_44100, channels=2, stream=windows_mic_out)
+    receiver = VBANAudioPlayer(stream=windows_mic_out)
 
     await receiver.listen()
 

@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -6,6 +7,9 @@ from ..enums import BackPressureStrategy
 from ..packet import VBANPacket
 from ..packet.body.service import DeviceType, Features
 from ..packet.headers.service import PingFunctions, ServiceType, VBANServiceHeader
+
+
+logger = logging.getLogger(__package__)
 
 
 @dataclass
@@ -24,12 +28,12 @@ class VBANDevice:
             await stream.handle_packet(packet)
         elif packet.header.streamname == 'VBAN Service' and isinstance(packet.header, VBANServiceHeader):
             if packet.header.service == ServiceType.Identification and packet.header.function == PingFunctions.Request:
-                print(f"Received ping request from {address}")
+                logger.info(f"Received ping request from {address}")
                 await self.send_ping_response(address)
 
         else:
-            print(f"Received packet for unregistered stream {packet.header.streamname} from {address}")
-            print(packet.header)
+            logger.debug(f"Received packet for unregistered stream {packet.header.streamname} from {address}")
+            logger.debug(packet.header)
 
     async def send_ping_response(self, address):
         from ..packet.body.service import Ping
@@ -47,13 +51,19 @@ class VBANDevice:
             ),
             body=response_body.pack()
         )
-        print(f"Sending ping response {response_body}")
+        logger.info(f"Sending ping response {response_body}")
         out_stream = VBANOutgoingStream(name="VBAN Service", _client=self._client)
         await out_stream.connect(address, self.port)
         await out_stream.send_packet(packet)
 
     def receive_stream(self, stream_name: str, back_pressure_strategy=BackPressureStrategy.DROP):
         stream = VBANIncomingStream(stream_name, queue_size=self.default_stream_size, _back_pressure_strategy=back_pressure_strategy)
+        self._streams[stream_name] = stream
+        return stream
+
+    async def send_stream(self, stream_name: str):
+        stream = VBANOutgoingStream(stream_name, _client=self._client)
+        await stream.connect(self.address, self.port)
         self._streams[stream_name] = stream
         return stream
 

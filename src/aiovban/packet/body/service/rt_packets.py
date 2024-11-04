@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 import struct
 
+from .. import PacketBody
 from ....enums import VBANSampleRate, State, VoicemeeterType
 
 
@@ -19,7 +20,7 @@ class Strip:
 
 
 @dataclass
-class RTPacketBodyType0:
+class RTPacketBodyType0(PacketBody):
     voiceMeeterType: VoicemeeterType
     buffersize: int
     voiceMeeterVersion: str
@@ -50,7 +51,6 @@ class RTPacketBodyType0:
     def buildStrips(cls, data):
 
         strip_states = struct.unpack("<" + "L"*8, data[216:248])
-        print(strip_states[0])
         layer1_gain = struct.unpack("<" + "H"*8, data[280:296])
         layer2_gain = struct.unpack("<" + "H"*8, data[296:312])
         layer3_gain = struct.unpack("<" + "H"*8, data[312:328])

@@ -6,6 +6,7 @@ from typing import Any
 
 from ..enums import VBANBaudRate, BackPressureStrategy
 from ..packet import VBANPacket
+from ..packet.body import Utf8StringBody
 from ..packet.headers.service import VBANServiceHeader, ServiceType
 from ..packet.headers.text import VBANTextHeader
 
@@ -92,25 +93,42 @@ class VBANTextStream(VBANOutgoingStream):
 
     async def send_text(self, text: str):
         header = VBANTextHeader(baud=self.baudrate)
-        await self.send_packet(VBANPacket(header, text.encode()))
+        await self.send_packet(VBANPacket(header, Utf8StringBody(text)))
 
 
 @dataclass
-class VBANCommandStream(VBANTextStream, VBANIncomingStream):
+class VBANRTStream(VBANOutgoingStream, VBANIncomingStream):
+    automatic_renewal: bool = True
     update_interval: int = 0xFF
 
-    async def send_renewal_registration(self):
+    async def register_for_updates(self):
         # Register for updates
         logger.info(f"Registering for updates for {self.update_interval} seconds")
         rt_header = VBANServiceHeader(service=ServiceType.RTPacketRegister, additional_info=self.update_interval)
-        await self.send_packet(VBANPacket(rt_header, b""))
+        registraiton_expiry = asyncio.Future()
+
+        async def start_expiry_timer():
+            await asyncio.sleep(self.update_interval)
+            registraiton_expiry.set_result(None)
+
+        await self.send_packet(VBANPacket(rt_header))
+        asyncio.create_task(start_expiry_timer())
+        return registraiton_expiry
+
 
     async def renew_updates(self):
         while True:
-            await asyncio.sleep(self.update_interval)
-            await self.send_renewal_registration()
+            waiter = await self.register_for_updates()
+            await waiter
+
+    async def handle_packet(self, packet: VBANPacket):
+        header = packet.header
+        if isinstance(header, VBANServiceHeader) and header.service == ServiceType.RTPacket:
+            await super().handle_packet(packet)
+        else:
+            logger.info(f"Received packet for RTStream with incorrect header type {header}")
 
     async def connect(self, address, port, loop=None):
         await super().connect(address, port, loop)
-        await self.send_renewal_registration()
-        asyncio.create_task(self.renew_updates())
+        if self.automatic_renewal:
+            asyncio.create_task(self.renew_updates())

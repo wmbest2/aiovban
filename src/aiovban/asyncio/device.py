@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from .streams import VBANIncomingStream, VBANTextStream, VBANCommandStream, VBANStream, VBANOutgoingStream
+from .streams import VBANIncomingStream, VBANTextStream, VBANRTStream, VBANStream, VBANOutgoingStream
 from ..enums import BackPressureStrategy
 from ..packet import VBANPacket
 from ..packet.body.service import DeviceType, Features
@@ -57,15 +57,17 @@ class VBANDevice:
         self._streams[stream_name] = stream
         return stream
 
-    def text_stream(self, stream_name: str):
+    async def text_stream(self, stream_name: str):
         stream = VBANTextStream(stream_name, _client=self._client)
+        await stream.connect(self.address, self.port)
         self._streams[stream_name] = stream
         return stream
 
-    async def command_stream(self, update_interval: int, stream_name: str, back_pressure_strategy=BackPressureStrategy.DROP):
-        stream = VBANCommandStream(
-            name = stream_name,
+    async def rt_stream(self, update_interval: int, automatic_renewal=True, back_pressure_strategy=BackPressureStrategy.DROP):
+        stream = VBANRTStream(
+            name = "VBAN-RTP",
             queue_size=20,
+            automatic_renewal=automatic_renewal,
             update_interval=update_interval,
             _back_pressure_strategy=back_pressure_strategy,
             _client=self._client
@@ -73,6 +75,6 @@ class VBANDevice:
 
         await stream.connect(self.address, self.port)
 
-        self._streams[stream_name] = stream
+        self._streams[stream.name] = stream
         self._streams['Voicemeeter-RTP'] = stream # Responses come to this stream
         return stream

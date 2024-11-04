@@ -64,9 +64,8 @@ class VBANAudioPlayer:
     async def handle_packets(self, packets: [VBANPacket]):
         if packets:
             self.check_pyaudio(packets[0])
-            bytes = functools.reduce(lambda a, b: a + b, [packet.body for packet in packets])
-            self._stream.write(bytes)
-
+            data = functools.reduce(lambda a, b: a + b, [bytes(packet.body) for packet in packets])
+            self._stream.write(data)
 
     async def listen(self):
         self._stream.start_stream()

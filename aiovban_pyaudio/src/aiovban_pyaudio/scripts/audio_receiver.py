@@ -6,7 +6,6 @@ from setproctitle import setproctitle
 
 from aiovban.asyncio import AsyncVBANClient
 from aiovban.enums import VBANSampleRate, BackPressureStrategy
-from aiovban.packet.body.service import RTPacketBodyType0
 from aiovban_pyaudio import VBANAudioPlayer
 
 
@@ -28,12 +27,14 @@ async def run_loop():
     windows_host = client.register_device('bill.local', 6980)
     windows_mic_out = windows_host.receive_stream('Windows Mic Out')
 
-    command_stream = await windows_host.command_stream(30, 'Command1', back_pressure_strategy=BackPressureStrategy.DRAIN_OLDEST)
+
+    command_stream = await windows_host.text_stream('Command1')
+    rt_stream = await windows_host.rt_stream(30, back_pressure_strategy=BackPressureStrategy.DRAIN_OLDEST)
     await command_stream.send_text('Strip[0].Gain = 0.5;')
     await asyncio.sleep(1)
     await command_stream.send_text('Command.Restart = 1;')
-    print(await command_stream.get_packet())
-    print(RTPacketBodyType0.unpack((await command_stream.get_packet()).body))
+    print(await rt_stream.get_packet())
+    print((await rt_stream.get_packet()).body)
 
 
     receiver = VBANAudioPlayer(sample_rate=VBANSampleRate.RATE_44100, channels=2, stream=windows_mic_out)

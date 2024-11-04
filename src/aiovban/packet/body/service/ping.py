@@ -2,6 +2,7 @@ import struct
 from dataclasses import dataclass, field
 from enum import Flag
 
+from .. import PacketBody
 from ....enums import VBANSampleRate
 
 
@@ -28,7 +29,7 @@ class Features(Flag):
 PING_STRUCT_FORMAT = "<LLLLLLLBBBB8s8s8s8s64s32sHH64s64s64s64s128s128s"
 
 @dataclass
-class Ping:
+class Ping(PacketBody):
     deviceType: DeviceType
     features: Features
     version: str

@@ -13,12 +13,14 @@ class VBANHeader(SyntheticMixin):
 
     def pack(self) -> bytes:
         output = b"VBAN"
-        output += struct.pack("<B", self.subprotocol | getattr(self, 'subprotocol_data', 0))
-        output += struct.pack("<B", getattr(self, 'byte_a', 0))
-        output += struct.pack("<B", getattr(self, 'byte_b', 0))
-        output += struct.pack("<B", getattr(self, 'byte_c', 0))
+        output += struct.pack(
+            "<B", self.subprotocol | getattr(self, "subprotocol_data", 0)
+        )
+        output += struct.pack("<B", getattr(self, "byte_a", 0))
+        output += struct.pack("<B", getattr(self, "byte_b", 0))
+        output += struct.pack("<B", getattr(self, "byte_c", 0))
         stream = self.streamname[:16]
-        output += bytes(stream + "\x00" * (16 - len(stream)), 'utf-8')
+        output += bytes(stream + "\x00" * (16 - len(stream)), "utf-8")
         output += struct.pack("<L", self.framecount)
         return output
 
@@ -28,9 +30,10 @@ class VBANHeader(SyntheticMixin):
         if data[0:4] != b"VBAN":
             raise VBANHeaderException("Invalid VBAN Header")
         from ...packet.headers.mapping import VBANSubProtocolMapping
+
         subclass = VBANSubProtocolMapping(sub).header_type
-        obj = cls.__new__(subclass) # Create bare type
-        obj.__post_init__()         # Initialize synthetic properties
+        obj = cls.__new__(subclass)  # Create bare type
+        obj.__post_init__()  # Initialize synthetic properties
         obj.subprotocol = sub
         obj.subprotocol_data = sub_data
         obj.byte_a = data[5]
@@ -39,6 +42,7 @@ class VBANHeader(SyntheticMixin):
         obj.streamname = data[8:24].decode("utf-8").strip("\x00")
         obj.framecount = struct.unpack("<L", data[24:28])[0]
         return obj
+
 
 class VBANHeaderException(Exception):
     pass

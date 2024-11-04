@@ -10,6 +10,7 @@ class PacketBody:
     def unpack(cls, data):
         pass
 
+
 @dataclass
 class BytesBody(PacketBody):
     data: bytes
@@ -24,16 +25,17 @@ class BytesBody(PacketBody):
     def unpack(cls, data):
         return cls(data)
 
+
 @dataclass
 class Utf8StringBody(PacketBody):
     text: str
 
     def __bytes__(self):
-        return bytes(self.text, 'utf-8')
+        return bytes(self.text, "utf-8")
 
     def pack(self):
-        return bytes(self.text, 'utf-8')
+        return bytes(self.text, "utf-8")
 
     @classmethod
     def unpack(cls, data):
-        return cls(data.decode('utf-8'))
+        return cls(data.decode("utf-8"))

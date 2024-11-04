@@ -9,7 +9,7 @@ from .headers.service import VBANServiceHeader, ServiceType
 @dataclass
 class VBANPacket:
     header: VBANHeader
-    body: PacketBody = BytesBody(b'')
+    body: PacketBody = BytesBody(b"")
 
     def __post_init__(self):
         if isinstance(self.body, bytes):
@@ -24,13 +24,16 @@ class VBANPacket:
         if isinstance(header, VBANServiceHeader):
             if header.service == ServiceType.Identification:
                 from .body.service import Ping
+
                 return VBANPacket(header, Ping.unpack(data[28:]))
             elif header.service == ServiceType.RTPacket:
                 from .body.service import RTPacketBodyType0
+
                 if header.function == 0x00:
                     return VBANPacket(header, RTPacketBodyType0.unpack(data[28:]))
             elif header.service == ServiceType.Chat_UTF8:
                 from .body import Utf8StringBody
+
                 return VBANPacket(header, Utf8StringBody.unpack(data[28:]))
 
         # Default/fallback to BytesBody

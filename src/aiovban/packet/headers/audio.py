@@ -6,6 +6,7 @@ from .subprotocol import VBANSubProtocolTypes
 from ...enums import VBANSampleRate
 from ...util.synthetics import subprotocol_data, byte_a, byte_b, byte_c, subprotocol
 
+
 class BitResolution(IntEnum):
     BYTE8 = 0x00
     INT16 = 0x01
@@ -18,6 +19,7 @@ class BitResolution(IntEnum):
 
     def __int__(self):
         return self.value
+
 
 class Codec(IntEnum):
     PCM = 0x00

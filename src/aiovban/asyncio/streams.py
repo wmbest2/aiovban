@@ -23,7 +23,9 @@ class VBANStream:
 class VBANIncomingStream(VBANStream):
     queue_size: int = 100
 
-    _back_pressure_strategy: BackPressureStrategy = field(default=BackPressureStrategy.DROP)
+    _back_pressure_strategy: BackPressureStrategy = field(
+        default=BackPressureStrategy.DROP
+    )
     _queue: Queue = field(default_factory=Queue, init=False)
     _mutex: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
 
@@ -31,7 +33,10 @@ class VBANIncomingStream(VBANStream):
         self._queue = asyncio.Queue(self.queue_size)
 
     async def handle_packet(self, packet: VBANPacket):
-        if self._back_pressure_strategy in [BackPressureStrategy.DROP, BackPressureStrategy.RAISE]:
+        if self._back_pressure_strategy in [
+            BackPressureStrategy.DROP,
+            BackPressureStrategy.RAISE,
+        ]:
             try:
                 self._queue.put_nowait(packet)
                 return
@@ -40,7 +45,6 @@ class VBANIncomingStream(VBANStream):
                     raise asyncio.QueueFull
                 else:
                     logger.debug(f"Queue full for stream {self.name}. Dropping packet")
-
 
         if self._back_pressure_strategy == BackPressureStrategy.DRAIN_OLDEST:
             await self._drain_queue()
@@ -56,7 +60,9 @@ class VBANIncomingStream(VBANStream):
             except asyncio.QueueEmpty:
                 pass
         self._mutex.release()
-        logger.debug(f"Drained {int(self.queue_size / 2)} packets from stream {self.name}")
+        logger.debug(
+            f"Drained {int(self.queue_size / 2)} packets from stream {self.name}"
+        )
 
     async def get_packet(self) -> VBANPacket:
         return await self._queue.get()
@@ -75,13 +81,16 @@ class VBANOutgoingStream(VBANStream):
         self._address = address
         self._port = port
         from .protocol import VBANSenderProtocol
+
         _, self._protocol = await loop.create_datagram_endpoint(
             lambda: VBANSenderProtocol(self._client),
             remote_addr=(address, port),
         )
 
     async def send_packet(self, packet: VBANPacket):
-        logger.debug(f"Sending packet with header type {packet.header.__class__.__name__}")
+        logger.debug(
+            f"Sending packet with header type {packet.header.__class__.__name__}"
+        )
         self._framecounter += 1
         packet.header.framecount = self._framecounter
         self._protocol.send_packet(packet, (self._address, self._port))
@@ -104,7 +113,9 @@ class VBANRTStream(VBANOutgoingStream, VBANIncomingStream):
     async def register_for_updates(self):
         # Register for updates
         logger.info(f"Registering for updates for {self.update_interval} seconds")
-        rt_header = VBANServiceHeader(service=ServiceType.RTPacketRegister, additional_info=self.update_interval)
+        rt_header = VBANServiceHeader(
+            service=ServiceType.RTPacketRegister, additional_info=self.update_interval
+        )
         registraiton_expiry = asyncio.Future()
 
         async def start_expiry_timer():
@@ -115,7 +126,6 @@ class VBANRTStream(VBANOutgoingStream, VBANIncomingStream):
         asyncio.create_task(start_expiry_timer())
         return registraiton_expiry
 
-
     async def renew_updates(self):
         while True:
             waiter = await self.register_for_updates()
@@ -123,10 +133,15 @@ class VBANRTStream(VBANOutgoingStream, VBANIncomingStream):
 
     async def handle_packet(self, packet: VBANPacket):
         header = packet.header
-        if isinstance(header, VBANServiceHeader) and header.service == ServiceType.RTPacket:
+        if (
+            isinstance(header, VBANServiceHeader)
+            and header.service == ServiceType.RTPacket
+        ):
             await super().handle_packet(packet)
         else:
-            logger.info(f"Received packet for RTStream with incorrect header type {header}")
+            logger.info(
+                f"Received packet for RTStream with incorrect header type {header}"
+            )
 
     async def connect(self, address, port, loop=None):
         await super().connect(address, port, loop)

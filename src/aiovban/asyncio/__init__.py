@@ -18,16 +18,17 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
 
     _transport: Any = field(default=None, init=False)
 
-    async def listen(self, address='0.0.0.0', port=6980, loop=None):
+    async def listen(self, address="0.0.0.0", port=6980, loop=None):
         loop = loop or asyncio.get_running_loop()
 
         # Create a socket and set the options
         try:
             from .protocol import VBANListenerProtocol
+
             _, proto = await loop.create_datagram_endpoint(
                 lambda: VBANListenerProtocol(self),
                 local_addr=(address, port),
-                allow_broadcast=not self.ignore_audio_streams
+                allow_broadcast=not self.ignore_audio_streams,
             )
 
             await proto.done
@@ -40,10 +41,11 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
         if device:
             await device.handle_packet(address, packet)
 
-
     def register_device(self, address: str, port: int = 6980):
         ip_address = socket.gethostbyname(address)
-        self._registered_devices[ip_address] = VBANDevice(ip_address, port, _client=self, default_stream_size=self.default_queue_size)
+        self._registered_devices[ip_address] = VBANDevice(
+            ip_address, port, _client=self, default_stream_size=self.default_queue_size
+        )
         return self._registered_devices[ip_address]
 
     def devices(self):

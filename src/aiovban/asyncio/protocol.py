@@ -45,6 +45,7 @@ class VBANListenerProtocol(VBANBaseProtocol):
         except VBANHeaderException as e:
             logger.info(f"Error unpacking packet: {e}")
 
+
 @dataclass
 class VBANSenderProtocol(VBANBaseProtocol):
     _transport: Any = field(default=None, init=False)

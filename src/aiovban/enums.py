@@ -9,19 +9,19 @@ class VoicemeeterType(Enum):
 
 
 class VBANSampleRate(Enum):
-    RATE_6000   = 0, 6000
-    RATE_8000   = 7, 8000
-    RATE_11025  = 14, 11025
-    RATE_12000  = 1, 12000
-    RATE_16000  = 8, 16000
-    RATE_22050  = 15, 22050
-    RATE_24000  = 2, 24000
-    RATE_32000  = 9, 32000
-    RATE_44100  = 16, 44100
-    RATE_48000  = 3, 48000
-    RATE_64000  = 10, 64000
-    RATE_88200  = 17, 88200
-    RATE_96000  = 4, 96000
+    RATE_6000 = 0, 6000
+    RATE_8000 = 7, 8000
+    RATE_11025 = 14, 11025
+    RATE_12000 = 1, 12000
+    RATE_16000 = 8, 16000
+    RATE_22050 = 15, 22050
+    RATE_24000 = 2, 24000
+    RATE_32000 = 9, 32000
+    RATE_44100 = 16, 44100
+    RATE_48000 = 3, 48000
+    RATE_64000 = 10, 64000
+    RATE_88200 = 17, 88200
+    RATE_96000 = 4, 96000
     RATE_128000 = 11, 128000
     RATE_176400 = 18, 176400
     RATE_192000 = 5, 192000
@@ -38,7 +38,7 @@ class VBANSampleRate(Enum):
         return obj
 
     @classmethod
-    def find(cls, data: int) -> 'VBANSampleRate':
+    def find(cls, data: int) -> "VBANSampleRate":
         filtered_values = [r for r in VBANSampleRate if r.rate == data]
         if len(filtered_values) > 0:
             return filtered_values[0]
@@ -99,31 +99,31 @@ class State(enum.Flag):
 
 
 class VBANBaudRate(enum.Enum):
-    RATE_0       = 0
-    RATE_110     = 1
-    RATE_150     = 2
-    RATE_300     = 3
-    RATE_600     = 4
-    RATE_1200    = 5
-    RATE_2400    = 6
-    RATE_4800    = 7
-    RATE_9600    = 8
-    RATE_14400   = 9
-    RATE_19200   = 10
-    RATE_31250   = 11
-    RATE_38400   = 12
-    RATE_57600   = 13
-    RATE_115200  = 14
-    RATE_128000  = 15
-    RATE_230400  = 16
-    RATE_250000  = 17
-    RATE_256000  = 18
-    RATE_460800  = 19
-    RATE_921600  = 20
-    RATE_1000000  = 21
-    RATE_1500000  = 22
-    RATE_2000000  = 23
-    RATE_3000000  = 24
+    RATE_0 = 0
+    RATE_110 = 1
+    RATE_150 = 2
+    RATE_300 = 3
+    RATE_600 = 4
+    RATE_1200 = 5
+    RATE_2400 = 6
+    RATE_4800 = 7
+    RATE_9600 = 8
+    RATE_14400 = 9
+    RATE_19200 = 10
+    RATE_31250 = 11
+    RATE_38400 = 12
+    RATE_57600 = 13
+    RATE_115200 = 14
+    RATE_128000 = 15
+    RATE_230400 = 16
+    RATE_250000 = 17
+    RATE_256000 = 18
+    RATE_460800 = 19
+    RATE_921600 = 20
+    RATE_1000000 = 21
+    RATE_1500000 = 22
+    RATE_2000000 = 23
+    RATE_3000000 = 24
     RATE_UNDEFINED1 = 25
     RATE_UNDEFINED2 = 26
     RATE_UNDEFINED3 = 27
@@ -140,9 +140,9 @@ class VBANBaudRate(enum.Enum):
     def __int__(self) -> int:
         return self.key
 
-class BackPressureStrategy(enum.Enum):
-    DROP = enum.auto()         # Drop packets when queue is full
-    DRAIN_OLDEST = enum.auto() # Drain oldest packets until queue is half full
-    BLOCK = enum.auto()        # Block until there is space in the queue
-    RAISE = enum.auto()        # Raise an exception when queue is full
 
+class BackPressureStrategy(enum.Enum):
+    DROP = enum.auto()  # Drop packets when queue is full
+    DRAIN_OLDEST = enum.auto()  # Drain oldest packets until queue is half full
+    BLOCK = enum.auto()  # Block until there is space in the queue
+    RAISE = enum.auto()  # Raise an exception when queue is full

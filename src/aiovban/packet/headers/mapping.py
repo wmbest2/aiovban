@@ -11,6 +11,7 @@ class VBANSubProtocolMappingMeta(EnumMeta):
     def __call__(cls, value, **kwargs):
         return super().__call__(VBANSubProtocolTypes(value), **kwargs)
 
+
 class VBANSubProtocolMapping(Enum, metaclass=VBANSubProtocolMappingMeta):
     AUDIO = VBANSubProtocolTypes.AUDIO, VBANAudioHeader
     SERIAL = VBANSubProtocolTypes.SERIAL
@@ -20,7 +21,6 @@ class VBANSubProtocolMapping(Enum, metaclass=VBANSubProtocolMappingMeta):
     UNDEFINED_2 = VBANSubProtocolTypes.UNDEFINED_2
     UNDEFINED_3 = VBANSubProtocolTypes.UNDEFINED_3
     USER = VBANSubProtocolTypes.USER
-
 
     def __new__(cls, type_data, header_type=None):
         obj = object.__new__(cls)

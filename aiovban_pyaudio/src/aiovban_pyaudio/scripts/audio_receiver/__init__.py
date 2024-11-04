@@ -4,7 +4,7 @@ import sys
 from setproctitle import setproctitle
 
 from aiovban.asyncio import AsyncVBANClient
-from aiovban.enums import VBANSampleRate, BackPressureStrategy
+from aiovban.enums import BackPressureStrategy
 from ... import VBANAudioPlayer
 
 

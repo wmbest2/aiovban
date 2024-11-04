@@ -45,6 +45,7 @@ class VBANIncomingStream(VBANStream):
                     raise asyncio.QueueFull
                 else:
                     logger.debug(f"Queue full for stream {self.name}. Dropping packet")
+                    return
 
         if self._back_pressure_strategy == BackPressureStrategy.DRAIN_OLDEST:
             await self._drain_queue()

@@ -33,82 +33,82 @@ PING_STRUCT_FORMAT = "<LLLLLLLBBBB8s8s8s8s64s32sHH64s64s64s64s128s128s"
 
 @dataclass
 class Ping(PacketBody):
-    deviceType: DeviceType
+    device_type: DeviceType
     features: Features
     version: str
 
-    featureExtra: int = 0
-    colorRGB: str = "0x000000"
-    preferredRate: VBANSampleRate = None
-    minRate: VBANSampleRate = VBANSampleRate.RATE_6000
-    maxRate: VBANSampleRate = VBANSampleRate.RATE_705600
-    gpsPosition: str = ""
-    userPosition: str = ""
-    langCode: str = ""
+    feature_extra: int = 0
+    color_rgb: str = "0x000000"
+    preferred_rate: VBANSampleRate = None
+    min_rate: VBANSampleRate = VBANSampleRate.RATE_6000
+    max_rate: VBANSampleRate = VBANSampleRate.RATE_705600
+    gps_position: str = ""
+    user_position: str = ""
+    lang_code: str = ""
     reserved: str = field(repr=False, default="")
-    reservedEx: str = field(repr=False, default="")
-    distantIP: str = ""
-    distantPort: int = 0
-    distantReserved: int = 0
-    deviceName: str = ""
-    manufacturerName: str = ""
-    applicationName: str = ""
-    hostName: str = ""
-    userName: str = ""
-    userComment: str = ""
+    reserved_ex: str = field(repr=False, default="")
+    distant_ip: str = ""
+    distant_port: int = 0
+    distant_reserved: int = 0
+    device_name: str = ""
+    manufacturer_name: str = ""
+    application_name: str = ""
+    host_name: str = ""
+    user_name: str = ""
+    user_comment: str = ""
 
     def pack(self):
         version_codes = self.version.split(".")
         return struct.pack(
             PING_STRUCT_FORMAT,
-            self.deviceType.value,
+            self.device_type.value,
             self.features.value,
-            self.featureExtra,
-            int(self.preferredRate) if self.preferredRate else 0,
-            int(self.minRate) if self.preferredRate else 0,
-            int(self.maxRate) if self.preferredRate else 0,
-            int(self.colorRGB, 16),
+            self.feature_extra,
+            int(self.preferred_rate) if self.preferred_rate else 0,
+            int(self.min_rate) if self.preferred_rate else 0,
+            int(self.max_rate) if self.preferred_rate else 0,
+            int(self.color_rgb, 16),
             *[int(version_codes[i]) if i < len(version_codes) else 0 for i in range(4)],
-            self.gpsPosition.encode("ascii"),
-            self.userPosition.encode("ascii"),
-            self.langCode.encode("ascii"),
+            self.gps_position.encode("ascii"),
+            self.user_position.encode("ascii"),
+            self.lang_code.encode("ascii"),
             self.reserved.encode("ascii"),
-            self.reservedEx.encode("ascii"),
-            self.distantIP.encode("ascii"),
-            self.distantPort,
-            self.distantReserved,
-            self.deviceName.encode("ascii"),
-            self.manufacturerName.encode("ascii"),
-            self.applicationName.encode("ascii"),
-            self.hostName.encode("ascii"),
-            self.userName.encode("utf-8"),
-            self.userComment.encode("utf-8"),
+            self.reserved_ex.encode("ascii"),
+            self.distant_ip.encode("ascii"),
+            self.distant_port,
+            self.distant_reserved,
+            self.device_name.encode("ascii"),
+            self.manufacturer_name.encode("ascii"),
+            self.application_name.encode("ascii"),
+            self.host_name.encode("ascii"),
+            self.user_name.encode("utf-8"),
+            self.user_comment.encode("utf-8"),
         )
 
     @classmethod
     def unpack(cls, data):
         unpacked_data = struct.unpack(PING_STRUCT_FORMAT, data)
         return cls(
-            deviceType=DeviceType(unpacked_data[0]),
+            device_type=DeviceType(unpacked_data[0]),
             features=Features(unpacked_data[1]),
-            featureExtra=unpacked_data[2],
-            preferredRate=VBANSampleRate.find(unpacked_data[3]),
-            minRate=VBANSampleRate.find(unpacked_data[4]),
-            maxRate=VBANSampleRate.find(unpacked_data[5]),
-            colorRGB=hex(unpacked_data[6]),
+            feature_extra=unpacked_data[2],
+            preferred_rate=VBANSampleRate.find(unpacked_data[3]),
+            min_rate=VBANSampleRate.find(unpacked_data[4]),
+            max_rate=VBANSampleRate.find(unpacked_data[5]),
+            color_rgb=hex(unpacked_data[6]),
             version=f"{unpacked_data[10]}.{unpacked_data[9]}.{unpacked_data[8]}.{unpacked_data[7]}",
-            gpsPosition=unpacked_data[11].decode("ascii").strip("\x00"),
-            userPosition=unpacked_data[12].decode("ascii").strip("\x00"),
-            langCode=unpacked_data[13].decode("ascii").strip("\x00"),
+            gps_position=unpacked_data[11].decode("ascii").strip("\x00"),
+            user_position=unpacked_data[12].decode("ascii").strip("\x00"),
+            lang_code=unpacked_data[13].decode("ascii").strip("\x00"),
             reserved=unpacked_data[14],
-            reservedEx=unpacked_data[15],
-            distantIP=unpacked_data[16].decode("ascii").strip("\x00"),
-            distantPort=unpacked_data[17],
-            distantReserved=unpacked_data[18],
-            deviceName=unpacked_data[19].decode("ascii").strip("\x00"),
-            manufacturerName=unpacked_data[20].decode("ascii").strip("\x00"),
-            applicationName=unpacked_data[21].decode("ascii").strip("\x00"),
-            hostName=unpacked_data[22].decode("ascii").strip("\x00"),
-            userName=unpacked_data[23].decode("utf-8").strip("\x00"),
-            userComment=unpacked_data[24].decode("utf-8").strip("\x00"),
+            reserved_ex=unpacked_data[15],
+            distant_ip=unpacked_data[16].decode("ascii").strip("\x00"),
+            distant_port=unpacked_data[17],
+            distant_reserved=unpacked_data[18],
+            device_name=unpacked_data[19].decode("ascii").strip("\x00"),
+            manufacturer_name=unpacked_data[20].decode("ascii").strip("\x00"),
+            application_name=unpacked_data[21].decode("ascii").strip("\x00"),
+            host_name=unpacked_data[22].decode("ascii").strip("\x00"),
+            user_name=unpacked_data[23].decode("utf-8").strip("\x00"),
+            user_comment=unpacked_data[24].decode("utf-8").strip("\x00"),
         )

@@ -53,9 +53,9 @@ class VBANDevice:
         from ..packet.body.service import Ping
 
         response_body = Ping(
-            deviceType=DeviceType.Receptor,
+            device_type=DeviceType.Receptor,
             features=Features.Audio | Features.Text,
-            deviceName="Python VBAN Client",
+            device_name="Python VBAN Client",
             version="1.0",
         )
         packet = VBANPacket(

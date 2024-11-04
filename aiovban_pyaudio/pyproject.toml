@@ -22,6 +22,9 @@ dependencies = [
     "pyaudio"
 ]
 
+[project.optional-dependencies]
+cli = ["setproctitle"]
+
 [project.urls]
 Homepage = "https://github.com/pypa/sampleproject"
 Issues = "https://github.com/pypa/sampleproject/issues"

@@ -21,10 +21,10 @@ class Strip:
 
 @dataclass
 class RTPacketBodyType0(PacketBody):
-    voiceMeeterType: VoicemeeterType
-    buffersize: int
-    voiceMeeterVersion: str
-    samplerate: VBANSampleRate
+    voice_meeter_type: VoicemeeterType
+    buffer_size: int
+    voice_meeter_version: str
+    sample_rate: VBANSampleRate
     input_levels: list = field(repr=False)
     output_levels: list = field(repr=False)
     transport_bits: int = field(repr=False)
@@ -94,12 +94,12 @@ class RTPacketBodyType0(PacketBody):
     @classmethod
     def unpack(cls, data):
         return RTPacketBodyType0(
-            voiceMeeterType=VoicemeeterType(data[0]),
+            voice_meeter_type=VoicemeeterType(data[0]),
             # reserved = data[1],
-            buffersize=struct.unpack("<H", data[2:4])[0],
-            voiceMeeterVersion=cls.versionFromBytes(data),
+            buffer_size=struct.unpack("<H", data[2:4])[0],
+            voice_meeter_version=cls.versionFromBytes(data),
             # optionBits = data[8:12]
-            samplerate=VBANSampleRate.find(struct.unpack("<L", data[12:16])[0]),
+            sample_rate=VBANSampleRate.find(struct.unpack("<L", data[12:16])[0]),
             input_levels=list(struct.unpack("<" + "H" * 34, data[16:84])),
             output_levels=list(struct.unpack("<" + "H" * 64, data[84:212])),
             transport_bits=struct.unpack("<L", data[212:216])[0],

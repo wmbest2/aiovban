@@ -4,9 +4,12 @@ import sys
 import pyaudio
 from setproctitle import setproctitle
 
+import os
+print(os.getcwd())
+
 from aiovban.asyncio import AsyncVBANClient
 from aiovban.enums import VBANSampleRate, BackPressureStrategy
-from aiovban_pyaudio import VBANAudioPlayer
+from ... import VBANAudioPlayer
 
 
 def setup_logging():
@@ -42,11 +45,7 @@ async def run_loop():
     await receiver.listen()
 
 
-for i in range(pyaudio.PyAudio().get_device_count()):
-    print(pyaudio.PyAudio().get_device_info_by_index(i))
-
-
-if __name__ == '__main__':
+def main():
     setproctitle('VBAN Audio Receiver')
     setup_logging()
     asyncio.run(run_loop())

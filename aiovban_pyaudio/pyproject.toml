@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiovban_pyaudio"
-version = "0.1.1"
+version = "0.1.2"
 authors = [
   { name="William Best", email="wmbest2@gmail.com" },
 ]
@@ -27,7 +27,4 @@ Homepage = "https://github.com/pypa/sampleproject"
 Issues = "https://github.com/pypa/sampleproject/issues"
 
 [project.scripts]
-aiovban_receiver = "aiovban_pyaudio.scripts:audio_receiver"
-
-[tool.setuptools.packages]
-find = {}
+aiovban_receiver = "aiovban_pyaudio.scripts:audio_receiver.main"

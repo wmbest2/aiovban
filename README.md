@@ -38,8 +38,8 @@ audio_header = VBANAudioHeader(sample_rate=VBANSampleRate.RATE_44100, channels=1
 packet = VBANPacket(header=audio_header)
 
 # Access properties
-print(packet.header.sample_rate)  # Output: 48000
-print(packet.header.samples_per_frame)  # Output: 256
+print(packet.header.sample_rate)  # Output: 44100
+print(packet.header.samples_per_frame)  # Output: 3
 ```
 
 ### Asynchronous Example

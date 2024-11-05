@@ -7,7 +7,7 @@ from setproctitle import setproctitle
 from aiovban import VBANApplicationData, DeviceType
 from aiovban.asyncio import AsyncVBANClient
 from aiovban.asyncio.util import BackPressureStrategy
-from aiovban.enums import VBANSampleRate, Features
+from aiovban.enums import Features
 from ..util import get_device_by_name
 from ... import VBANAudioPlayer, VBANAudioSender
 

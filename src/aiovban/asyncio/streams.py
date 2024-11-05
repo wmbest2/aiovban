@@ -4,7 +4,8 @@ from asyncio import Queue
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..enums import VBANBaudRate, BackPressureStrategy
+from .util import BackPressureQueue, BackPressureStrategy
+from ..enums import VBANBaudRate
 from ..packet import VBANPacket
 from ..packet.body import Utf8StringBody
 from ..packet.headers.service import VBANServiceHeader, ServiceType
@@ -22,48 +23,14 @@ class VBANStream:
 @dataclass
 class VBANIncomingStream(VBANStream):
     queue_size: int = 100
-
-    _back_pressure_strategy: BackPressureStrategy = field(
-        default=BackPressureStrategy.DROP
-    )
-    _queue: Queue = field(default_factory=Queue, init=False)
-    _mutex: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
+    back_pressure_strategy: BackPressureStrategy = BackPressureStrategy.BLOCK
+    _queue: BackPressureQueue = field(default=None, init=False)
 
     def __post_init__(self):
-        self._queue = asyncio.Queue(self.queue_size)
+        self._queue = BackPressureQueue(self.queue_size, back_pressure_strategy=self.back_pressure_strategy)
 
     async def handle_packet(self, packet: VBANPacket):
-        if self._back_pressure_strategy in [
-            BackPressureStrategy.DROP,
-            BackPressureStrategy.RAISE,
-        ]:
-            try:
-                self._queue.put_nowait(packet)
-                return
-            except asyncio.QueueFull:
-                if self._back_pressure_strategy == BackPressureStrategy.RAISE:
-                    raise asyncio.QueueFull
-                else:
-                    logger.debug(f"Queue full for stream {self.name}. Dropping packet")
-                    return
-
-        if self._back_pressure_strategy == BackPressureStrategy.DRAIN_OLDEST:
-            await self._drain_queue()
-
-        asyncio.create_task(self._queue.put(packet))
-
-    async def _drain_queue(self):
-        # Leveraging the mutex to ensure that we don't have multiple drain operations happening at the same time
-        await self._mutex.acquire()
-        for i in range(int(self.queue_size / 2)):
-            try:
-                self._queue.get_nowait()
-            except asyncio.QueueEmpty:
-                pass
-        self._mutex.release()
-        logger.debug(
-            f"Drained {int(self.queue_size / 2)} packets from stream {self.name}"
-        )
+        await self._queue.put(packet)
 
     async def get_packet(self) -> VBANPacket:
         return await self._queue.get()
@@ -89,12 +56,31 @@ class VBANOutgoingStream(VBANStream):
         )
 
     async def send_packet(self, packet: VBANPacket):
-        logger.debug(
-            f"Sending packet with header type {packet.header.__class__.__name__}"
-        )
         self._framecounter += 1
         packet.header.framecount = self._framecounter
         self._protocol.send_packet(packet, (self._address, self._port))
+
+@dataclass
+class BufferedVBANOutgoingStream(VBANOutgoingStream):
+    buffer_size: int = 100
+    back_pressure_strategy: BackPressureStrategy = BackPressureStrategy.BLOCK
+
+    _buffer: BackPressureQueue = field(default=None, init=False)
+
+    def __post_init__(self):
+        self._buffer = BackPressureQueue(self.buffer_size, back_pressure_strategy=self.back_pressure_strategy)
+
+    async def connect(self, address, port, loop=None):
+        await super().connect(address, port, loop)
+        asyncio.create_task(self.send_buffered_packets())
+
+    async def send_packet(self, packet: VBANPacket):
+        await self._buffer.put(packet)
+
+    async def send_buffered_packets(self):
+        while True:
+            packet = await self._buffer.get()
+            await super().send_packet(packet)
 
 
 @dataclass

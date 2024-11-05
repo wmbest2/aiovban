@@ -7,11 +7,10 @@ from .streams import (
     VBANTextStream,
     VBANRTStream,
     VBANStream,
-    VBANOutgoingStream,
+    VBANOutgoingStream, BufferedVBANOutgoingStream,
 )
-from ..enums import BackPressureStrategy
+from .util import BackPressureStrategy
 from ..packet import VBANPacket
-from ..packet.body.service import DeviceType, Features
 from ..packet.headers.service import PingFunctions, ServiceType, VBANServiceHeader
 
 
@@ -50,14 +49,7 @@ class VBANDevice:
             logger.debug(packet.header)
 
     async def send_ping_response(self, address):
-        from ..packet.body.service import Ping
-
-        response_body = Ping(
-            device_type=DeviceType.Receptor,
-            features=Features.Audio | Features.Text,
-            device_name="Python VBAN Client",
-            version="1.0",
-        )
+        response_body = self._client.get_ping_response()
         packet = VBANPacket(
             header=VBANServiceHeader(
                 streamname="VBAN Service",
@@ -72,18 +64,18 @@ class VBANDevice:
         await out_stream.send_packet(packet)
 
     def receive_stream(
-        self, stream_name: str, back_pressure_strategy=BackPressureStrategy.DROP
+        self, stream_name: str, back_pressure_strategy=BackPressureStrategy.BLOCK
     ):
         stream = VBANIncomingStream(
             stream_name,
             queue_size=self.default_stream_size,
-            _back_pressure_strategy=back_pressure_strategy,
+            back_pressure_strategy=back_pressure_strategy,
         )
         self._streams[stream_name] = stream
         return stream
 
     async def send_stream(self, stream_name: str):
-        stream = VBANOutgoingStream(stream_name, _client=self._client)
+        stream = BufferedVBANOutgoingStream(stream_name, _client=self._client, back_pressure_strategy=BackPressureStrategy.DROP)
         await stream.connect(self.address, self.port)
         self._streams[stream_name] = stream
         return stream
@@ -102,10 +94,10 @@ class VBANDevice:
     ):
         stream = VBANRTStream(
             name="VBAN-RTP",
-            queue_size=20,
+            queue_size=100,
             automatic_renewal=automatic_renewal,
             update_interval=update_interval,
-            _back_pressure_strategy=back_pressure_strategy,
+            back_pressure_strategy=back_pressure_strategy,
             _client=self._client,
         )
 

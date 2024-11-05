@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from . import AsyncVBANClient
-from ..packet import VBANPacket, VBANHeader
+from ..packet import VBANPacket
 from ..packet.headers import VBANHeaderException
 
 

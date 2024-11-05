@@ -1,50 +1,18 @@
 import struct
 from dataclasses import dataclass, field
-from enum import Flag
 
 from .. import PacketBody
-from ....enums import VBANSampleRate
-
-
-class DeviceType(Flag):
-    Receptor = 0x00000001
-    Transmitter = 0x00000002
-    ReceptorSpot = 0x00000004
-    TransmitterSpot = 0x00000008
-    VirtualDevice = 0x00000010
-    VirtualMixer = 0x00000020
-    Matrix = 0x00000040
-    DAW = 0x00000080
-    Server = 0x01000000
-
-
-class Features(Flag):
-    Audio = 0x00000001
-    AoIP = 0x00000002
-    VoIP = 0x00000004
-    Serial = 0x00000100
-    MIDI = 0x00000300
-    Frame = 0x00001000
-    Text = 0x00010000
-
+from .... import VBANApplicationData
+from ....enums import VBANSampleRate, DeviceType, Features
 
 PING_STRUCT_FORMAT = "<LLLLLLLBBBB8s8s8s8s64s32sHH64s64s64s64s128s128s"
 
 
 @dataclass
-class Ping(PacketBody):
-    device_type: DeviceType
-    features: Features
-    version: str
-
+class Ping(PacketBody, VBANApplicationData):
     feature_extra: int = 0
-    color_rgb: str = "0x000000"
-    preferred_rate: VBANSampleRate = None
-    min_rate: VBANSampleRate = VBANSampleRate.RATE_6000
-    max_rate: VBANSampleRate = VBANSampleRate.RATE_705600
     gps_position: str = ""
     user_position: str = ""
-    lang_code: str = ""
     reserved: str = field(repr=False, default="")
     reserved_ex: str = field(repr=False, default="")
     distant_ip: str = ""
@@ -52,10 +20,7 @@ class Ping(PacketBody):
     distant_reserved: int = 0
     device_name: str = ""
     manufacturer_name: str = ""
-    application_name: str = ""
     host_name: str = ""
-    user_name: str = ""
-    user_comment: str = ""
 
     def pack(self):
         version_codes = self.version.split(".")

@@ -42,7 +42,7 @@ class Codec(IntEnum):
 
 @dataclass
 class VBANAudioHeader(VBANHeader):
-    samples_per_frame: int = byte_a()
+    samples_per_frame: int = byte_a(offset=1)
     channels: int = byte_b(offset=1)
     bit_resolution: BitResolution = byte_c(0x07)
     codec: Codec = byte_c(0xF0)

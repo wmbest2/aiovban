@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 
-from .headers import VBANSubProtocolTypes
 from .body import PacketBody, BytesBody
 from .headers import VBANHeader
+from .headers.subprotocol import VBANSubProtocolTypes
 from .headers.service import VBANServiceHeader, ServiceType
+from .headers.text import VBANTextHeader
 
 
 @dataclass
@@ -20,6 +21,7 @@ class VBANPacket:
 
     @classmethod
     def unpack(cls, data):
+        from .body import Utf8StringBody
         header = VBANHeader.unpack(data)
         if isinstance(header, VBANServiceHeader):
             if header.service == ServiceType.Identification:
@@ -32,9 +34,10 @@ class VBANPacket:
                 if header.function == 0x00:
                     return VBANPacket(header, RTPacketBodyType0.unpack(data[28:]))
             elif header.service == ServiceType.Chat_UTF8:
-                from .body import Utf8StringBody
-
                 return VBANPacket(header, Utf8StringBody.unpack(data[28:]))
+
+        elif isinstance(header, VBANTextHeader):
+            return VBANPacket(header, Utf8StringBody.unpack(data[28:]))
 
         # Default/fallback to BytesBody
         return VBANPacket(header, BytesBody.unpack(data[28:]))

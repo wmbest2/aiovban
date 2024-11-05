@@ -1,5 +1,4 @@
-import enum
-from enum import Enum
+from enum import Enum, Flag, auto
 
 
 class VoicemeeterType(Enum):
@@ -48,7 +47,7 @@ class VBANSampleRate(Enum):
         return self.key
 
 
-class State(enum.Flag):
+class State(Flag):
     MODE_MUTE = 0x00000001
     MODE_SOLO = 0x00000002
     MODE_MONO = 0x00000004
@@ -98,7 +97,7 @@ class State(enum.Flag):
     MODE_MONITOR = 0x20000000
 
 
-class VBANBaudRate(enum.Enum):
+class VBANBaudRate(Enum):
     RATE_0 = 0
     RATE_110 = 1
     RATE_150 = 2
@@ -141,8 +140,26 @@ class VBANBaudRate(enum.Enum):
         return self.key
 
 
-class BackPressureStrategy(enum.Enum):
-    DROP = enum.auto()  # Drop packets when queue is full
-    DRAIN_OLDEST = enum.auto()  # Drain oldest packets until queue is half full
-    BLOCK = enum.auto()  # Block until there is space in the queue
-    RAISE = enum.auto()  # Raise an exception when queue is full
+
+class DeviceType(Flag):
+    Unknown = 0x00000000
+    Receptor = 0x00000001
+    Transmitter = 0x00000002
+    ReceptorSpot = 0x00000004
+    TransmitterSpot = 0x00000008
+    VirtualDevice = 0x00000010
+    VirtualMixer = 0x00000020
+    Matrix = 0x00000040
+    DAW = 0x00000080
+    Server = 0x01000000
+
+
+class Features(Flag):
+    NoFeatures = 0x00000000
+    Audio = 0x00000001
+    AoIP = 0x00000002
+    VoIP = 0x00000004
+    Serial = 0x00000100
+    MIDI = 0x00000300
+    Frame = 0x00001000
+    Text = 0x00010000

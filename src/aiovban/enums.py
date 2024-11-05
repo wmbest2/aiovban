@@ -140,7 +140,6 @@ class VBANBaudRate(Enum):
         return self.key
 
 
-
 class DeviceType(Flag):
     Unknown = 0x00000000
     Receptor = 0x00000001

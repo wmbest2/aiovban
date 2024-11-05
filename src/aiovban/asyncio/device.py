@@ -7,7 +7,8 @@ from .streams import (
     VBANTextStream,
     VBANRTStream,
     VBANStream,
-    VBANOutgoingStream, BufferedVBANOutgoingStream,
+    VBANOutgoingStream,
+    BufferedVBANOutgoingStream,
 )
 from .util import BackPressureStrategy
 from ..packet import VBANPacket
@@ -75,7 +76,11 @@ class VBANDevice:
         return stream
 
     async def send_stream(self, stream_name: str):
-        stream = BufferedVBANOutgoingStream(stream_name, _client=self._client, back_pressure_strategy=BackPressureStrategy.DROP)
+        stream = BufferedVBANOutgoingStream(
+            stream_name,
+            _client=self._client,
+            back_pressure_strategy=BackPressureStrategy.DROP,
+        )
         await stream.connect(self.address, self.port)
         self._streams[stream_name] = stream
         return stream

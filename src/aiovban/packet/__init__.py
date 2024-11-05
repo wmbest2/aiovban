@@ -22,6 +22,7 @@ class VBANPacket:
     @classmethod
     def unpack(cls, data):
         from .body import Utf8StringBody
+
         header = VBANHeader.unpack(data)
         if isinstance(header, VBANServiceHeader):
             if header.service == ServiceType.Identification:

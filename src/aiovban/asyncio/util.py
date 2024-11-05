@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-logger = logging.getLogger(__package__ + '.' + __name__)
+logger = logging.getLogger(__package__ + "." + __name__)
 
 
 class BackPressureStrategy(Enum):
@@ -42,7 +42,10 @@ class BackPressureQueue:
                     logger.debug(f"Queue full. Dropping item")
                     return
 
-        if self.back_pressure_strategy == BackPressureStrategy.DRAIN_OLDEST and self._queue.full():
+        if (
+            self.back_pressure_strategy == BackPressureStrategy.DRAIN_OLDEST
+            and self._queue.full()
+        ):
             await self._drain_queue()
 
         await self._queue.put(packet)
@@ -56,13 +59,10 @@ class BackPressureQueue:
             except asyncio.QueueEmpty:
                 print("Queue empty")
         self._mutex.release()
-        logger.debug(
-            f"Drained {int(self.queue_size / 2)} items from queue"
-        )
+        logger.debug(f"Drained {int(self.queue_size / 2)} items from queue")
 
     async def get(self):
         return await self._queue.get()
-
 
     def get_nowait(self):
         return self._queue.get_nowait()

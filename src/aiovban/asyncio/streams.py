@@ -27,7 +27,9 @@ class VBANIncomingStream(VBANStream):
     _queue: BackPressureQueue = field(default=None, init=False)
 
     def __post_init__(self):
-        self._queue = BackPressureQueue(self.queue_size, back_pressure_strategy=self.back_pressure_strategy)
+        self._queue = BackPressureQueue(
+            self.queue_size, back_pressure_strategy=self.back_pressure_strategy
+        )
 
     async def handle_packet(self, packet: VBANPacket):
         await self._queue.put(packet)
@@ -60,6 +62,7 @@ class VBANOutgoingStream(VBANStream):
         packet.header.framecount = self._framecounter
         self._protocol.send_packet(packet, (self._address, self._port))
 
+
 @dataclass
 class BufferedVBANOutgoingStream(VBANOutgoingStream):
     buffer_size: int = 100
@@ -68,7 +71,9 @@ class BufferedVBANOutgoingStream(VBANOutgoingStream):
     _buffer: BackPressureQueue = field(default=None, init=False)
 
     def __post_init__(self):
-        self._buffer = BackPressureQueue(self.buffer_size, back_pressure_strategy=self.back_pressure_strategy)
+        self._buffer = BackPressureQueue(
+            self.buffer_size, back_pressure_strategy=self.back_pressure_strategy
+        )
 
     async def connect(self, address, port, loop=None):
         await super().connect(address, port, loop)

@@ -44,6 +44,10 @@ async def run_loop():
     windows_host = client.register_device("bill.local", 6980)
     windows_mic_out = windows_host.receive_stream("Windows Mic Out")
     mac_in = await windows_host.send_stream("Mac In")
+    pyaudio_instance = pyaudio.PyAudio()
+
+    for i in range(pyaudio_instance.get_device_count()):
+        print(pyaudio_instance.get_device_info_by_index(i))
 
     command_stream = await windows_host.text_stream("Command1")
     rt_stream = await windows_host.rt_stream(
@@ -55,10 +59,6 @@ async def run_loop():
     print(await rt_stream.get_packet())
     print((await rt_stream.get_packet()).body)
 
-    pyaudio_instance = pyaudio.PyAudio()
-
-    for i in range(pyaudio_instance.get_device_count()):
-        print(pyaudio_instance.get_device_info_by_index(i))
 
     receiver_device = get_device_by_name(pyaudio_instance, "Windows Audio In")
     sender_device = get_device_by_name(pyaudio_instance, "Air Pods")

@@ -24,7 +24,7 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
         lang_code=locale.getdefaultlocale()[0],
     )
     ignore_audio_streams: bool = True
-    default_queue_size: int = 100
+    default_queue_size: int = 200
 
     _registered_devices: dict = field(default_factory=dict)
 

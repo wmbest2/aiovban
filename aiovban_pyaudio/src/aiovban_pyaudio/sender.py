@@ -72,7 +72,8 @@ class VBANAudioSender:
         return self._stream.read(amount, exception_on_overflow=False)
 
     @run_on_background_thread
-    async def listen(self):
+    async def listen(self, origin_loop):
+        self._loop = origin_loop
         self._stream.start_stream()
 
         try:

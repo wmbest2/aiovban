@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import IntEnum, Enum
 
 from . import VBANHeader
 from .subprotocol import VBANSubProtocolTypes
@@ -7,18 +7,24 @@ from ...enums import VBANSampleRate
 from ...util.synthetics import subprotocol_data, byte_a, byte_b, byte_c, subprotocol
 
 
-class BitResolution(IntEnum):
-    BYTE8 = 0x00
-    INT16 = 0x01
-    INT24 = 0x02
-    INT32 = 0x03
-    FLOAT32 = 0x04
-    FLOAT64 = 0x05
-    BITS12 = 0x06
-    BITS10 = 0x07
+class BitResolution(Enum):
+    BYTE8 = 0x00, 1
+    INT16 = 0x01, 2
+    INT24 = 0x02, 3
+    INT32 = 0x03, 4
+    FLOAT32 = 0x04, 4
+    FLOAT64 = 0x05, 8
+    BITS12 = 0x06, 4
+    BITS10 = 0x07, 2
 
     def __int__(self):
         return self.value
+
+    def __new__(cls, data, byte_width):
+        obj = object.__new__(cls)
+        obj.key = obj._value_ = data
+        obj.byte_width = byte_width
+        return obj
 
 
 class Codec(IntEnum):

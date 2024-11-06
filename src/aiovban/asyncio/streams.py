@@ -2,7 +2,8 @@ import asyncio
 import logging
 from asyncio import Queue
 from dataclasses import dataclass, field
-from typing import Any
+from optparse import Option
+from typing import Any, Union, Optional
 
 from .util import BackPressureQueue, BackPressureStrategy
 from ..enums import VBANBaudRate
@@ -23,12 +24,14 @@ class VBANStream:
 @dataclass
 class VBANIncomingStream(VBANStream):
     queue_size: int = 100
-    back_pressure_strategy: BackPressureStrategy = BackPressureStrategy.BLOCK
+    back_pressure_strategy: BackPressureStrategy = BackPressureStrategy.DROP
     _queue: BackPressureQueue = field(default=None, init=False)
 
     def __post_init__(self):
         self._queue = BackPressureQueue(
-            self.queue_size, back_pressure_strategy=self.back_pressure_strategy
+            queue_size=self.queue_size,
+            queue_name=self.name,
+            back_pressure_strategy=self.back_pressure_strategy
         )
 
     async def handle_packet(self, packet: VBANPacket):
@@ -36,6 +39,12 @@ class VBANIncomingStream(VBANStream):
 
     async def get_packet(self) -> VBANPacket:
         return await self._queue.get()
+
+    def get_packet_nowait(self) -> Optional[VBANPacket]:
+        try:
+            return self._queue.get_nowait()
+        except asyncio.QueueEmpty:
+            return None
 
 
 @dataclass
@@ -72,7 +81,9 @@ class BufferedVBANOutgoingStream(VBANOutgoingStream):
 
     def __post_init__(self):
         self._buffer = BackPressureQueue(
-            self.buffer_size, back_pressure_strategy=self.back_pressure_strategy
+            queue_size=self.buffer_size,
+            queue_name=self.name,
+            back_pressure_strategy=self.back_pressure_strategy
         )
 
     async def connect(self, address, port, loop=None):
@@ -90,10 +101,10 @@ class BufferedVBANOutgoingStream(VBANOutgoingStream):
 
 @dataclass
 class VBANTextStream(VBANOutgoingStream):
-    baudrate: VBANBaudRate = VBANBaudRate.RATE_256000
+    baud_rate: VBANBaudRate = VBANBaudRate.RATE_256000
 
     async def send_text(self, text: str):
-        header = VBANTextHeader(baud=self.baudrate)
+        header = VBANTextHeader(baud=self.baud_rate)
         await self.send_packet(VBANPacket(header, Utf8StringBody(text)))
 
 

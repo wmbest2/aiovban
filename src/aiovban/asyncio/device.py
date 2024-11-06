@@ -11,6 +11,7 @@ from .streams import (
     BufferedVBANOutgoingStream,
 )
 from .util import BackPressureStrategy
+from ..enums import VBANBaudRate
 from ..packet import VBANPacket
 from ..packet.headers.service import PingFunctions, ServiceType, VBANServiceHeader
 
@@ -22,7 +23,7 @@ logger = logging.getLogger(__package__)
 class VBANDevice:
     address: str
     port: int = 6980
-    default_stream_size: int = 200
+    default_stream_size: int = 100
 
     _client: Any = None
     _streams: dict = field(default_factory=dict)
@@ -65,7 +66,7 @@ class VBANDevice:
         await out_stream.send_packet(packet)
 
     def receive_stream(
-        self, stream_name: str, back_pressure_strategy=BackPressureStrategy.BLOCK
+        self, stream_name: str, back_pressure_strategy=BackPressureStrategy.DROP
     ):
         stream = VBANIncomingStream(
             stream_name,
@@ -75,18 +76,18 @@ class VBANDevice:
         self._streams[stream_name] = stream
         return stream
 
-    async def send_stream(self, stream_name: str):
+    async def send_stream(self, stream_name: str, back_pressure_strategy=BackPressureStrategy.DROP):
         stream = BufferedVBANOutgoingStream(
             stream_name,
             _client=self._client,
-            back_pressure_strategy=BackPressureStrategy.DROP,
+            back_pressure_strategy=back_pressure_strategy,
         )
         await stream.connect(self.address, self.port)
         self._streams[stream_name] = stream
         return stream
 
-    async def text_stream(self, stream_name: str):
-        stream = VBANTextStream(stream_name, _client=self._client)
+    async def text_stream(self, stream_name: str, baud_rate: VBANBaudRate = VBANBaudRate.RATE_256000):
+        stream = VBANTextStream(stream_name, _client=self._client, baud_rate=baud_rate)
         await stream.connect(self.address, self.port)
         self._streams[stream_name] = stream
         return stream

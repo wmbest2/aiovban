@@ -13,6 +13,7 @@ from .streams import (
 from .util import BackPressureStrategy
 from ..enums import VBANBaudRate
 from ..packet import VBANPacket
+from ..packet.body.service import Ping
 from ..packet.headers.service import PingFunctions, ServiceType, VBANServiceHeader
 
 
@@ -24,6 +25,7 @@ class VBANDevice:
     address: str
     port: int = 6980
     default_stream_size: int = 100
+    connected_application_data: Ping = None
 
     _client: Any = None
     _streams: dict = field(default_factory=dict)
@@ -35,14 +37,21 @@ class VBANDevice:
         if stream and isinstance(stream, VBANIncomingStream):
             await stream.handle_packet(packet)
         elif packet.header.streamname == "VBAN Service" and isinstance(
-            packet.header, VBANServiceHeader
+                packet.header, VBANServiceHeader
         ):
             if (
-                packet.header.service == ServiceType.Identification
-                and packet.header.function == PingFunctions.Request
+                    packet.header.service == ServiceType.Identification
+                    and packet.header.function in [PingFunctions.Request, PingFunctions.Response]
             ):
-                logger.info(f"Received ping request from {address}")
-                await self.send_ping_response(address)
+                from . import VBANApplicationData
+                body: VBANApplicationData = packet.body
+                logger.info(f"Received ping {PingFunctions(packet.header.function).name} from {address} with data: {packet.body}")
+                if packet.header.function == PingFunctions.Request:
+                    await self.send_ping(address, PingFunctions.Response)
+
+                self.connected_application_data = body
+
+
 
         else:
             logger.debug(
@@ -50,13 +59,13 @@ class VBANDevice:
             )
             logger.debug(packet.header)
 
-    async def send_ping_response(self, address):
+    async def send_ping(self, address, type: PingFunctions = PingFunctions.Request):
         response_body = self._client.get_ping_response()
         packet = VBANPacket(
             header=VBANServiceHeader(
                 streamname="VBAN Service",
                 service=ServiceType.Identification,
-                function=PingFunctions.Response,
+                function=type,
             ),
             body=response_body.pack(),
         )
@@ -66,7 +75,7 @@ class VBANDevice:
         await out_stream.send_packet(packet)
 
     def receive_stream(
-        self, stream_name: str, back_pressure_strategy=BackPressureStrategy.DROP
+            self, stream_name: str, back_pressure_strategy=BackPressureStrategy.DROP
     ):
         stream = VBANIncomingStream(
             stream_name,
@@ -93,10 +102,10 @@ class VBANDevice:
         return stream
 
     async def rt_stream(
-        self,
-        update_interval: int,
-        automatic_renewal=True,
-        back_pressure_strategy=BackPressureStrategy.DROP,
+            self,
+            update_interval: int,
+            automatic_renewal=True,
+            back_pressure_strategy=BackPressureStrategy.DROP,
     ):
         stream = VBANRTStream(
             name="VBAN-RTP",

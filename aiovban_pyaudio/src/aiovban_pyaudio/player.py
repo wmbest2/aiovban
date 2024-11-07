@@ -129,19 +129,23 @@ class VBANAudioPlayer:
     async def sync_buffers(self):
         await self._framebuffer.synchronize(self.format.byte_width * self.channels)
 
+    async def gather_data(self, quantity: int = 5):
+        packets = asyncio.gather(*[self.stream.get_packet() for _ in range(quantity)])
+        return await packets
+
     async def listen(self):
         self._stream: pyaudio.Stream = self.setup_stream()
         self._stream.start_stream()
-        self._stream.is_active()
 
         try:
             while True:
-                packet = await self.stream.get_packet()
-                resync = await self.check_pyaudio(packet)
-                if resync:
-                    await self.sync_buffers()
+                packets = await self.gather_data()
+                for packet in packets:
+                    resync = await self.check_pyaudio(packet)
+                    if resync:
+                        await self.sync_buffers()
 
-                await self.write_data(packet)
+                    await self.write_data(packet)
         except asyncio.CancelledError as _:
             self.stop()
 

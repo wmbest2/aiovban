@@ -1,4 +1,5 @@
 import asyncio
+import os
 import sys
 
 import pyaudio
@@ -26,6 +27,11 @@ def setup_logging():
     handler.setFormatter(formatter)
     root.addHandler(handler)
 
+async def wait_for_first_done(*tasks):
+    (done_tasks, pending) = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+    for pending in pending:
+        pending.cancel()
+    return done_tasks
 
 async def run_loop():
     application_data = VBANApplicationData(
@@ -37,9 +43,7 @@ async def run_loop():
     client = AsyncVBANClient(
         ignore_audio_streams=False, application_data=application_data
     )
-    asyncio.create_task(
-        client.listen("0.0.0.0", 6980)
-    )  # Listen for all incoming packets
+    listen_future = await client.listen("0.0.0.0", 6980)
 
     windows_host = client.register_device("bill.local", 6980)
     windows_mic_out = windows_host.receive_stream("Windows Mic Out")
@@ -70,8 +74,7 @@ async def run_loop():
         stream=mac_in, pyaudio=pyaudio_instance, device_index=sender_device
     )
 
-    await asyncio.gather(receiver.listen(), sender.listen())
-
+    await wait_for_first_done(listen_future, sender.listen(), receiver.listen())
 
 def main():
     setproctitle("VBAN Audio Receiver")

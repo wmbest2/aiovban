@@ -1,5 +1,4 @@
 import asyncio
-import dataclasses
 import locale
 import logging
 import platform
@@ -34,19 +33,15 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
         loop = loop or asyncio.get_running_loop()
 
         # Create a socket and set the options
-        try:
-            from .protocol import VBANListenerProtocol
+        from .protocol import VBANListenerProtocol
 
-            _, proto = await loop.create_datagram_endpoint(
-                lambda: VBANListenerProtocol(self),
-                local_addr=(address, port),
-                allow_broadcast=not self.ignore_audio_streams,
-            )
+        _, proto = await loop.create_datagram_endpoint(
+            lambda: VBANListenerProtocol(self),
+            local_addr=(address, port),
+            allow_broadcast=not self.ignore_audio_streams,
+        )
 
-            await proto.done
-        except Exception as e:
-            print("Failed to connect")
-            print(e)
+        return proto.done
 
     @staticmethod
     def _get_device_name():

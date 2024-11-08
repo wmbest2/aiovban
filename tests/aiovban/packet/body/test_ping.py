@@ -29,7 +29,7 @@ class TestPing(unittest.TestCase):
             "application_name": "App",
             "host_name": "Host",
             "user_name": "User",
-            "user_comment": "Comment"
+            "user_comment": "Comment",
         }
         self.ping = Ping(**self.sample_data)
 
@@ -40,7 +40,9 @@ class TestPing(unittest.TestCase):
         self.assertEqual(unpacked_ping.device_type, self.sample_data["device_type"])
         self.assertEqual(unpacked_ping.features, self.sample_data["features"])
         self.assertEqual(unpacked_ping.feature_extra, self.sample_data["feature_extra"])
-        self.assertEqual(unpacked_ping.preferred_rate, self.sample_data["preferred_rate"])
+        self.assertEqual(
+            unpacked_ping.preferred_rate, self.sample_data["preferred_rate"]
+        )
         self.assertEqual(unpacked_ping.min_rate, self.sample_data["min_rate"])
         self.assertEqual(unpacked_ping.max_rate, self.sample_data["max_rate"])
         self.assertEqual(unpacked_ping.color_rgb, self.sample_data["color_rgb"])
@@ -50,13 +52,20 @@ class TestPing(unittest.TestCase):
         self.assertEqual(unpacked_ping.lang_code, self.sample_data["lang_code"])
         self.assertEqual(unpacked_ping.distant_ip, self.sample_data["distant_ip"])
         self.assertEqual(unpacked_ping.distant_port, self.sample_data["distant_port"])
-        self.assertEqual(unpacked_ping.distant_reserved, self.sample_data["distant_reserved"])
+        self.assertEqual(
+            unpacked_ping.distant_reserved, self.sample_data["distant_reserved"]
+        )
         self.assertEqual(unpacked_ping.device_name, self.sample_data["device_name"])
-        self.assertEqual(unpacked_ping.manufacturer_name, self.sample_data["manufacturer_name"])
-        self.assertEqual(unpacked_ping.application_name, self.sample_data["application_name"])
+        self.assertEqual(
+            unpacked_ping.manufacturer_name, self.sample_data["manufacturer_name"]
+        )
+        self.assertEqual(
+            unpacked_ping.application_name, self.sample_data["application_name"]
+        )
         self.assertEqual(unpacked_ping.host_name, self.sample_data["host_name"])
         self.assertEqual(unpacked_ping.user_name, self.sample_data["user_name"])
         self.assertEqual(unpacked_ping.user_comment, self.sample_data["user_comment"])
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

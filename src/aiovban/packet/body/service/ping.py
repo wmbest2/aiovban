@@ -33,7 +33,10 @@ class Ping(PacketBody, VBANApplicationData):
             int(self.min_rate) if self.preferred_rate else 0,
             int(self.max_rate) if self.preferred_rate else 0,
             int(self.color_rgb, 16),
-            *[int(version_codes[3-i]) if i < len(version_codes) else 0 for i in range(4)],
+            *[
+                int(version_codes[3 - i]) if i < len(version_codes) else 0
+                for i in range(4)
+            ],
             self.gps_position.encode("ascii"),
             self.user_position.encode("ascii"),
             self.lang_code.encode("ascii"),

@@ -109,17 +109,24 @@ class RTPacketBodyType0(PacketBody):
         )
 
     def pack(self):
-        version_bytes = struct.pack("<BBBB", *[int(v) for v in self.voice_meeter_version.split(".")])
-        input_levels_bytes = struct.pack("<" + "H"*34, *self.input_levels)
-        output_levels_bytes = struct.pack("<" + "H"*64, *self.output_levels)
+        version_bytes = struct.pack(
+            "<BBBB", *[int(v) for v in self.voice_meeter_version.split(".")]
+        )
+        input_levels_bytes = struct.pack("<" + "H" * 34, *self.input_levels)
+        output_levels_bytes = struct.pack("<" + "H" * 64, *self.output_levels)
         transport_bits_bytes = struct.pack("<L", self.transport_bits)
 
-        strip_states_bytes = struct.pack("<" + "L" * 8, *[int(strip.state) for strip in self.strips])
+        strip_states_bytes = struct.pack(
+            "<" + "L" * 8, *[int(strip.state) for strip in self.strips]
+        )
         layer_gains_bytes = b"".join(
-            struct.pack("<" + "H" * 8, *[strip.layers[i] for strip in self.strips]) for i in range(8)
+            struct.pack("<" + "H" * 8, *[strip.layers[i] for strip in self.strips])
+            for i in range(8)
         )
         print(len(layer_gains_bytes))
-        bus_states_bytes = struct.pack("<" + "L" * 8, *[int(bus.state) for bus in self.buses])
+        bus_states_bytes = struct.pack(
+            "<" + "L" * 8, *[int(bus.state) for bus in self.buses]
+        )
         bus_gains_bytes = struct.pack("<" + "H" * 8, *[bus.gain for bus in self.buses])
         strip_names_bytes = b"".join(
             struct.pack("<60s", strip.label.encode("utf-8")) for strip in self.strips
@@ -129,19 +136,19 @@ class RTPacketBodyType0(PacketBody):
         )
 
         return (
-            struct.pack("<B", self.voice_meeter_type.value) +
-            b'\x00' + # reserved
-            struct.pack("<H", self.buffer_size) +
-            version_bytes +
-            b'\x00' * 4 + # optionBits
-            struct.pack("<L", self.sample_rate.value) +
-            input_levels_bytes +
-            output_levels_bytes +
-            transport_bits_bytes +
-            strip_states_bytes +
-            bus_states_bytes +
-            layer_gains_bytes +
-            bus_gains_bytes +
-            strip_names_bytes +
-            bus_names_bytes
+            struct.pack("<B", self.voice_meeter_type.value)
+            + b"\x00"  # reserved
+            + struct.pack("<H", self.buffer_size)
+            + version_bytes
+            + b"\x00" * 4  # optionBits
+            + struct.pack("<L", self.sample_rate.value)
+            + input_levels_bytes
+            + output_levels_bytes
+            + transport_bits_bytes
+            + strip_states_bytes
+            + bus_states_bytes
+            + layer_gains_bytes
+            + bus_gains_bytes
+            + strip_names_bytes
+            + bus_names_bytes
         )

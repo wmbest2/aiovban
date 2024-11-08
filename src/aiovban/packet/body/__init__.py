@@ -13,7 +13,7 @@ class PacketBody:
 
 @dataclass
 class BytesBody(PacketBody):
-    data: bytes
+    data: bytes = b""
 
     def __bytes__(self):
         return self.data

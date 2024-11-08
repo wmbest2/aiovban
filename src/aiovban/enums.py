@@ -96,6 +96,9 @@ class State(Flag):
     MODE_SEL = 0x10000000
     MODE_MONITOR = 0x20000000
 
+    def __int__(self):
+        return int(self.value)
+
 
 class VBANBaudRate(Enum):
     RATE_0 = 0

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiovban"
-version = "0.5.0"
+version = "0.6.0"
 authors = [
   { name="William Best", email="wmbest2@gmail.com" },
 ]
@@ -12,11 +12,26 @@ description = "An asyncio VBAN implementation"
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
+    "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 
 [project.urls]
-Homepage = "https://github.com/pypa/sampleproject"
-Issues = "https://github.com/pypa/sampleproject/issues"
+Homepage = "https://github.com/wmbest2/aiovban"
+Issues = "https://github.com/wmbest2/aiovban/issues"
+
+
+[tool.tox]
+requires = ["tox>=4.19"]
+env_list = ["3.13", "3.12", "3.11", "3.10"]
+
+[tool.tox.env_run_base]
+description = "Run test under {base_python}"
+deps = ["pytest"]
+commands = [["pytest"]]

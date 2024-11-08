@@ -1,5 +1,6 @@
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from email.policy import default
 
 from .body import PacketBody, BytesBody
 from .headers import VBANHeader
@@ -11,7 +12,7 @@ from .headers.text import VBANTextHeader
 @dataclass
 class VBANPacket:
     header: VBANHeader
-    body: PacketBody = BytesBody(b"")
+    body: PacketBody = field(default_factory=BytesBody)
     timestamp: int = 0
 
     def __post_init__(self):

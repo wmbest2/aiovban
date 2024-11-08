@@ -1,4 +1,4 @@
-from enum import Enum, Flag, auto
+from enum import Enum, Flag, auto, IntFlag
 
 
 class VoicemeeterType(Enum):

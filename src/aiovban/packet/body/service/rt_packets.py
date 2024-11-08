@@ -38,11 +38,11 @@ class RTPacketBodyType0(PacketBody):
     @classmethod
     def buildBuses(cls, data):
         bus_states = struct.unpack("<" + "L" * 8, data[248:280])
-        bus_gain = struct.unpack("<" + "H" * 8, data[404:420])
+        bus_gain = struct.unpack("<" + "H" * 8, data[408:424])
 
         bus_names = []
         for n in range(8):
-            bus_start = 900 + (n * 60)
+            bus_start = 904 + (n * 60)
             bus_names.append(
                 data[bus_start : bus_start + 60].decode("utf-8").strip("\x00")
             )
@@ -67,7 +67,7 @@ class RTPacketBodyType0(PacketBody):
 
         strip_names = []
         for n in range(8):
-            strip_start = 420 + (n * 60)
+            strip_start = 424 + (n * 60)
             strip_names.append(
                 data[strip_start : strip_start + 60].decode("utf-8").strip("\x00")
             )
@@ -93,6 +93,7 @@ class RTPacketBodyType0(PacketBody):
 
     @classmethod
     def unpack(cls, data):
+        print(data)
         return RTPacketBodyType0(
             voice_meeter_type=VoicemeeterType(data[0]),
             # reserved = data[1],
@@ -109,13 +110,15 @@ class RTPacketBodyType0(PacketBody):
 
     def pack(self):
         version_bytes = struct.pack("<BBBB", *[int(v) for v in self.voice_meeter_version.split(".")])
-        input_levels_bytes = struct.pack("<" + "H" * 34, *self.input_levels)
-        output_levels_bytes = struct.pack("<" + "H" * 64, *self.output_levels)
+        input_levels_bytes = struct.pack("<" + "H"*34, *self.input_levels)
+        output_levels_bytes = struct.pack("<" + "H"*64, *self.output_levels)
         transport_bits_bytes = struct.pack("<L", self.transport_bits)
+
         strip_states_bytes = struct.pack("<" + "L" * 8, *[int(strip.state) for strip in self.strips])
         layer_gains_bytes = b"".join(
             struct.pack("<" + "H" * 8, *[strip.layers[i] for strip in self.strips]) for i in range(8)
         )
+        print(len(layer_gains_bytes))
         bus_states_bytes = struct.pack("<" + "L" * 8, *[int(bus.state) for bus in self.buses])
         bus_gains_bytes = struct.pack("<" + "H" * 8, *[bus.gain for bus in self.buses])
         strip_names_bytes = b"".join(
@@ -136,8 +139,8 @@ class RTPacketBodyType0(PacketBody):
             output_levels_bytes +
             transport_bits_bytes +
             strip_states_bytes +
-            layer_gains_bytes +
             bus_states_bytes +
+            layer_gains_bytes +
             bus_gains_bytes +
             strip_names_bytes +
             bus_names_bytes

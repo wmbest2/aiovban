@@ -31,7 +31,7 @@ class VBANIncomingStream(VBANStream):
         self._queue = BackPressureQueue(
             queue_size=self.queue_size,
             queue_name=self.name,
-            back_pressure_strategy=self.back_pressure_strategy
+            back_pressure_strategy=self.back_pressure_strategy,
         )
 
     async def handle_packet(self, packet: VBANPacket):
@@ -83,7 +83,7 @@ class BufferedVBANOutgoingStream(VBANOutgoingStream):
         self._buffer = BackPressureQueue(
             queue_size=self.buffer_size,
             queue_name=self.name,
-            back_pressure_strategy=self.back_pressure_strategy
+            back_pressure_strategy=self.back_pressure_strategy,
         )
 
     async def connect(self, address, port, loop=None):

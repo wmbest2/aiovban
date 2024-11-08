@@ -40,8 +40,10 @@ class VBANListenerProtocol(VBANBaseProtocol):
 
     def datagram_received(self, data, addr):
         try:
+            if self.client.quick_reject(addr[0]):
+                return
             packet = VBANPacket.unpack(data)
-            asyncio.create_task(self.client.process_packet(addr[0], packet))
+            asyncio.create_task(self.client.process_packet(addr[0], addr[1], packet))
         except VBANHeaderException as e:
             logger.info(f"Error unpacking packet: {e}")
 

@@ -13,7 +13,7 @@ class BackPressureStrategy(Enum):
     DRAIN_OLDEST = auto()  # Drain oldest packets until queue is half full
     BLOCK = auto()  # Block until there is space in the queue
     RAISE = auto()  # Raise an exception when queue is full
-    POP = auto() # Pop the oldest item from the queue
+    POP = auto()  # Pop the oldest item from the queue
 
 
 @dataclass
@@ -50,7 +50,7 @@ class BackPressureQueue:
             if self.back_pressure_strategy == BackPressureStrategy.DRAIN_OLDEST:
                 await self._drain_queue()
             elif self.back_pressure_strategy == BackPressureStrategy.POP:
-                #logger.debug(f"{self.queue_name} full. Dropping item")
+                # logger.debug(f"{self.queue_name} full. Dropping item")
                 self._queue.get_nowait()
 
         await self._queue.put(packet)

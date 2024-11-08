@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import threading
+from asyncio import AbstractEventLoop
 from dataclasses import field, dataclass
 from typing import Any
 
@@ -59,7 +60,8 @@ class VBANAudioSender:
             ),
             body=BytesBody(audio_data),
         )
-        await self.stream.send_packet(packet)
+        if self._loop:
+            asyncio.create_task(self.stream.send_packet(packet))
 
     async def send_all_audio_data(self, audio_data):
         chunks = self.split_bytes_into_chunks(
@@ -72,7 +74,7 @@ class VBANAudioSender:
         return self._stream.read(amount, exception_on_overflow=False)
 
     @run_on_background_thread
-    async def listen(self, origin_loop):
+    async def listen(self, origin_loop: AbstractEventLoop):
         self._loop = origin_loop
         self._stream.start_stream()
 
@@ -81,7 +83,9 @@ class VBANAudioSender:
                 audio_data = self.read_stream(
                     self.framebuffer_size * self.sample_buffer_size
                 )
-                await self.send_all_audio_data(audio_data)
+                asyncio.run_coroutine_threadsafe(
+                    self.send_all_audio_data(audio_data), origin_loop
+                ).result()
         except asyncio.CancelledError as _:
             self.stop()
 

@@ -15,14 +15,14 @@ from .util import FrameBuffer
 
 logger = logging.getLogger(__name__)
 probability_filter = ProbabilityFilter()
-probability_filter.probability = 0.01
+probability_filter.probability = 0.001
 probability_logger = logging.getLogger(__name__)
 probability_logger.addFilter(probability_filter)
 
 
 @dataclass
 class VBANAudioPlayer:
-    stream: VBANIncomingStream # This stream should be accessed from the original loop, not the background thread
+    stream: VBANIncomingStream  # This stream should be accessed from the original loop, not the background thread
 
     device_index: int = 0
     sample_rate: VBANSampleRate = VBANSampleRate.RATE_48000
@@ -32,13 +32,17 @@ class VBANAudioPlayer:
     max_framebuffer_size: int = framebuffer_size * 4
 
     pyaudio: Any = None
-    _stream: Any = field(init=False) # The audio stream should be accessed from the background thread
+    _stream: Any = field(
+        init=False
+    )  # The audio stream should be accessed from the background thread
     _framebuffer: FrameBuffer = field(default=None, init=False, repr=False)
     _loop: Any = field(default=None, init=False)
 
     def __post_init__(self):
         self._synced = False
-        self._framebuffer = FrameBuffer(self.max_framebuffer_size, self.format.byte_width * self.channels)
+        self._framebuffer = FrameBuffer(
+            self.max_framebuffer_size, self.format.byte_width * self.channels
+        )
         self._loop = asyncio.get_event_loop()
 
         if not self.pyaudio:
@@ -52,16 +56,16 @@ class VBANAudioPlayer:
             output=True,
             frames_per_buffer=self.framebuffer_size,
             output_device_index=self.device_index,
-            stream_callback=self.data_callback_in_thread
+            stream_callback=self.data_callback_in_thread,
         )
 
     async def check_pyaudio(self, packet: VBANPacket):
         header: VBANHeader = packet.header
         if (
-                isinstance(header, VBANAudioHeader)
-                and header.sample_rate != self.sample_rate
-                or header.channels != self.channels
-                or header.bit_resolution != self.format
+            isinstance(header, VBANAudioHeader)
+            and header.sample_rate != self.sample_rate
+            or header.channels != self.channels
+            or header.bit_resolution != self.format
         ):
             print(
                 f"Changing stream to {header.channels} channels, {header.sample_rate.rate} Hz, {header.samples_per_frame} samples per frame for stream {header.streamname}"
@@ -83,7 +87,6 @@ class VBANAudioPlayer:
             return True
         return False
 
-
     def silence(self, num_frames=0):
         return b"\x00" * num_frames * self.format.byte_width * self.channels
 
@@ -93,14 +96,23 @@ class VBANAudioPlayer:
             # Synchronize the buffers, since we started reading off the network before starting this stream
             if not self._synced:
                 logger.debug("Synchronizing buffers")
-                asyncio.run_coroutine_threadsafe(self.sync_buffers(), self._loop).result()
+                asyncio.run_coroutine_threadsafe(
+                    self.sync_buffers(), self._loop
+                ).result()
                 self._synced = True
                 return self.silence(num_frames=frame_count), pyaudio.paContinue
 
-            (buffer_data, available_frame_count) = asyncio.run_coroutine_threadsafe(self.commit_data(frame_count), self._loop).result()
+            (buffer_data, available_frame_count) = asyncio.run_coroutine_threadsafe(
+                self.commit_data(frame_count), self._loop
+            ).result()
             if available_frame_count < frame_count:
-                print(f"Buffer underflow: {frame_count - available_frame_count} frames with latency of {self._estimated_latency(frame_count)} ms")
-                return self.silence(frame_count - available_frame_count) + buffer_data, pyaudio.paContinue
+                print(
+                    f"Buffer underflow: {frame_count - available_frame_count} frames with latency of {self._estimated_latency(frame_count - available_frame_count)} ms"
+                )
+                return (
+                    self.silence(frame_count - available_frame_count) + buffer_data,
+                    pyaudio.paContinue,
+                )
             return buffer_data, pyaudio.paContinue
 
         return self.silence(frame_count), pyaudio.paContinue
@@ -109,16 +121,21 @@ class VBANAudioPlayer:
         return frames * self.channels * self.format.byte_width
 
     def _estimated_latency(self, frame_count):
-        return (frame_count / self.sample_rate.rate) * 1000 # ms
+        return (frame_count / self.sample_rate.rate) * 1000  # ms
 
     async def commit_data(self, frame_count):
         (buffer_size, available) = await self._framebuffer.size()
-        probability_logger.info(f"Buffer size: {buffer_size} \n Current Latency: {self._estimated_latency(available)} ms")
+        probability_logger.info(
+            f"Buffer size: {buffer_size} \n Current Latency: {self._estimated_latency(available)} ms"
+        )
 
-        (buffer_data, available_frames, dropped_frames) = await self._framebuffer.read(frame_count)
+        (buffer_data, available_frames, dropped_frames) = await self._framebuffer.read(
+            frame_count
+        )
         if dropped_frames > 0:
             logger.info(
-                f"Dropping {dropped_frames} frames out of {frame_count} frames with maximum of {self.max_framebuffer_size} frames")
+                f"Dropping {dropped_frames} frames out of {frame_count} frames with maximum of {self.max_framebuffer_size} frames"
+            )
         return buffer_data, available_frames
 
     async def write_data(self, packet: VBANPacket):

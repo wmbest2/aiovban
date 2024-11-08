@@ -7,15 +7,13 @@ from .streams import (
     VBANTextStream,
     VBANRTStream,
     VBANStream,
-    VBANOutgoingStream,
     BufferedVBANOutgoingStream,
 )
 from .util import BackPressureStrategy
 from ..enums import VBANBaudRate
 from ..packet import VBANPacket
 from ..packet.body.service import Ping
-from ..packet.headers.service import PingFunctions, ServiceType, VBANServiceHeader
-
+from ..packet.headers.service import PingFunctions, ServiceType
 
 logger = logging.getLogger(__package__)
 
@@ -23,7 +21,7 @@ logger = logging.getLogger(__package__)
 @dataclass
 class VBANDevice:
     address: str
-    port: int = 6980
+    default_port: int = 6980
     default_stream_size: int = 100
     connected_application_data: Ping = None
 
@@ -37,21 +35,15 @@ class VBANDevice:
         if stream and isinstance(stream, VBANIncomingStream):
             await stream.handle_packet(packet)
         elif packet.header.streamname == "VBAN Service" and isinstance(
-                packet.header, VBANServiceHeader
+            packet.header, VBANServiceHeader
         ):
             if (
-                    packet.header.service == ServiceType.Identification
-                    and packet.header.function in [PingFunctions.Request, PingFunctions.Response]
+                packet.header.service == ServiceType.Identification
+                and packet.header.function
+                in [PingFunctions.Request, PingFunctions.Response]
             ):
-                from . import VBANApplicationData
-                body: VBANApplicationData = packet.body
-                logger.info(f"Received ping {PingFunctions(packet.header.function).name} from {address} with data: {packet.body}")
-                if packet.header.function == PingFunctions.Request:
-                    await self.send_ping(address, PingFunctions.Response)
-
+                body: Ping = packet.body
                 self.connected_application_data = body
-
-
 
         else:
             logger.debug(
@@ -59,23 +51,8 @@ class VBANDevice:
             )
             logger.debug(packet.header)
 
-    async def send_ping(self, address, type: PingFunctions = PingFunctions.Request):
-        response_body = self._client.get_ping_response()
-        packet = VBANPacket(
-            header=VBANServiceHeader(
-                streamname="VBAN Service",
-                service=ServiceType.Identification,
-                function=type,
-            ),
-            body=response_body.pack(),
-        )
-        logger.info(f"Sending ping response {response_body}")
-        out_stream = VBANOutgoingStream(name="VBAN Service", _client=self._client)
-        await out_stream.connect(address, self.port)
-        await out_stream.send_packet(packet)
-
     def receive_stream(
-            self, stream_name: str, back_pressure_strategy=BackPressureStrategy.DROP
+        self, stream_name: str, back_pressure_strategy=BackPressureStrategy.DROP
     ):
         stream = VBANIncomingStream(
             stream_name,
@@ -85,27 +62,39 @@ class VBANDevice:
         self._streams[stream_name] = stream
         return stream
 
-    async def send_stream(self, stream_name: str, back_pressure_strategy=BackPressureStrategy.DROP):
+    async def send_stream(
+        self,
+        stream_name: str,
+        port: int = None,
+        back_pressure_strategy=BackPressureStrategy.DROP,
+    ):
+        port = port or self.default_port
         stream = BufferedVBANOutgoingStream(
             stream_name,
             _client=self._client,
             back_pressure_strategy=back_pressure_strategy,
         )
-        await stream.connect(self.address, self.port)
+        await stream.connect(self.address, port)
         self._streams[stream_name] = stream
         return stream
 
-    async def text_stream(self, stream_name: str, baud_rate: VBANBaudRate = VBANBaudRate.RATE_256000):
+    async def text_stream(
+        self,
+        stream_name: str,
+        baud_rate: VBANBaudRate = VBANBaudRate.RATE_256000,
+        port: int = None,
+    ):
+        port = port or self.default_port
         stream = VBANTextStream(stream_name, _client=self._client, baud_rate=baud_rate)
-        await stream.connect(self.address, self.port)
+        await stream.connect(self.address, port)
         self._streams[stream_name] = stream
         return stream
 
     async def rt_stream(
-            self,
-            update_interval: int,
-            automatic_renewal=True,
-            back_pressure_strategy=BackPressureStrategy.DROP,
+        self,
+        update_interval: int,
+        automatic_renewal=True,
+        back_pressure_strategy=BackPressureStrategy.DROP,
     ):
         stream = VBANRTStream(
             name="VBAN-RTP",
@@ -116,7 +105,7 @@ class VBANDevice:
             _client=self._client,
         )
 
-        await stream.connect(self.address, self.port)
+        await stream.connect(self.address, self.default_port)
 
         self._streams[stream.name] = stream
         self._streams["Voicemeeter-RTP"] = stream  # Responses come to this stream

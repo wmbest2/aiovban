@@ -17,13 +17,17 @@ def run_on_background_thread(func):
         origin_loop = asyncio.get_running_loop()
         future = asyncio.get_running_loop().create_future()
         thread = threading.Thread(
-            target=run_loop, args=(loop, future, origin_loop, *args), kwargs=kwargs, daemon=True
+            target=run_loop,
+            args=(loop, future, origin_loop, *args),
+            kwargs=kwargs,
+            daemon=True,
         )
         thread.start()
         future.add_done_callback(lambda s: thread.join(timeout=1))
         return future
 
     return wrapper
+
 
 class FrameBuffer:
     """
@@ -106,9 +110,11 @@ class FrameBuffer:
                 excess_frames = 0
                 bytes_to_drop = 0
 
-            buffer_data = self._buffer[bytes_to_drop:bytes_to_drop + bytes_for_frames]
-            self._buffer = self._buffer[bytes_to_drop + bytes_for_frames:]
-            self._frame_count = max(0, self._frame_count - maximum_available_frames - excess_frames)
+            buffer_data = self._buffer[bytes_to_drop : bytes_to_drop + bytes_for_frames]
+            self._buffer = self._buffer[bytes_to_drop + bytes_for_frames :]
+            self._frame_count = max(
+                0, self._frame_count - maximum_available_frames - excess_frames
+            )
 
             return buffer_data, maximum_available_frames, excess_frames
 

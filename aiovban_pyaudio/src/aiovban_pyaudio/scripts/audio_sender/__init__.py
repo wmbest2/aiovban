@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import logging
 import sys
 
 import pyaudio
@@ -9,7 +10,9 @@ from aiovban import VBANApplicationData, DeviceType
 from aiovban.asyncio import AsyncVBANClient
 from aiovban.enums import Features
 from ..util import get_device_by_name
-from ... import VBANAudioPlayer
+from ... import VBANAudioSender
+
+logger = logging.getLogger(__name__)
 
 
 def setup_logging():
@@ -18,7 +21,7 @@ def setup_logging():
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
     handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(logging.INFO)
+    handler.setLevel(logging.DEBUG)
     print("Setting up logging at level INFO")
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -38,43 +41,32 @@ async def wait_for_first_done(*tasks):
 
 async def run_loop(config):
     application_data = VBANApplicationData(
-        application_name="VBAN Audio Receiver",
+        application_name="VBAN Audio Sender",
         features=Features.Audio | Features.Text,
         device_type=DeviceType.Receptor,
         version="0.2.1",
     )
-    client = AsyncVBANClient(
-        ignore_audio_streams=False, application_data=application_data
-    )
-    listen_future = await client.listen(config.host_address, config.host_port)
+    client = AsyncVBANClient(application_data=application_data)
 
     pyaudio_instance = pyaudio.PyAudio()
 
-    output_device = get_device_by_name(pyaudio_instance, config.output_device)
+    input_device = get_device_by_name(pyaudio_instance, config.input_device)
 
-    players = []
-    for stream in config.streams:
-        full_address, stream_name = stream.split("/")
-        if ":" in full_address:
-            address, port = full_address.split(":")
-        else:
-            address = full_address
-            port = 6980
+    device = client.register_device(config.address, config.port)
+    logger.info(f"Registered device {device}")
+    stream = await device.send_stream(config.stream_name)
 
-        host = client.register_device(address, port)
-        receiver = host.receive_stream(stream_name)
-        players.append(
-            VBANAudioPlayer(
-                stream=receiver, pyaudio=pyaudio_instance, device_index=output_device
-            )
-        )
-
-    await wait_for_first_done(listen_future, *map(lambda p: p.listen(), players))
+    listener = VBANAudioSender(
+        stream=stream,
+        pyaudio=pyaudio_instance,
+        device_index=input_device,
+    )
+    await listener.listen()
 
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="aioVBAN Stream Receiver",
+        prog="aioVBAN Stream Sender",
         description="Receives Audio Streams from VBAN and plays them back",
     )
     parser.add_argument(
@@ -83,24 +75,28 @@ def main():
         help="Enable debug logging",
     )
     parser.add_argument(
-        "--host-port",
+        "--address",
+        type=str,
+        help="The address to send the VBAN packets to",
+    )
+    parser.add_argument(
+        "--port",
         type=int,
         default=6980,
     )
-    parser.add_argument("--host-address", default="0.0.0.0")
     parser.add_argument(
-        "streams",
-        nargs="+",
-        help="Streams in the format of 'address:port/stream_name'",
-    )
-    parser.add_argument(
-        "--output-device",
+        "--input-device",
         type=str,
         help="The name of the output device to use",
+    )
+    parser.add_argument(
+        "--stream-name",
+        type=str,
+        help="The name of the stream to send",
     )
 
     config = parser.parse_args()
 
-    setproctitle("aioVBAN Stream Receiver")
+    setproctitle("aioVBAN Stream Sender")
     setup_logging()
     asyncio.run(run_loop(config))

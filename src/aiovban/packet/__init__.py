@@ -34,17 +34,27 @@ class VBANPacket:
             if header.service == ServiceType.Identification:
                 from .body.service import Ping
 
-                return VBANPacket(header, Ping.unpack(data[28:]), timestamp=time.time_ns())
+                return VBANPacket(
+                    header, Ping.unpack(data[28:]), timestamp=time.time_ns()
+                )
             elif header.service == ServiceType.RTPacket:
                 from .body.service import RTPacketBodyType0
 
                 if header.function == 0x00:
-                    return VBANPacket(header, RTPacketBodyType0.unpack(data[28:]), timestamp=time.time_ns())
+                    return VBANPacket(
+                        header,
+                        RTPacketBodyType0.unpack(data[28:]),
+                        timestamp=time.time_ns(),
+                    )
             elif header.service == ServiceType.Chat_UTF8:
-                return VBANPacket(header, Utf8StringBody.unpack(data[28:]), timestamp=time.time_ns())
+                return VBANPacket(
+                    header, Utf8StringBody.unpack(data[28:]), timestamp=time.time_ns()
+                )
 
         elif isinstance(header, VBANTextHeader):
-            return VBANPacket(header, Utf8StringBody.unpack(data[28:]), timestamp=time.time_ns())
+            return VBANPacket(
+                header, Utf8StringBody.unpack(data[28:]), timestamp=time.time_ns()
+            )
 
         # Default/fallback to BytesBody
         return VBANPacket(header, BytesBody.unpack(data[28:]), timestamp=time.time_ns())

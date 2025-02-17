@@ -16,21 +16,25 @@ from ..packet.headers.service import PingFunctions, VBANServiceHeader
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class AsyncVBANClient(asyncio.DatagramProtocol):
-    application_data: VBANApplicationData = VBANApplicationData(
+def _default_application_data():
+    return VBANApplicationData(
         device_type=DeviceType.Unknown,
         features=Features.NoFeatures,
         version="0.0.1",
         application_name="aiovban",
         lang_code=locale.getdefaultlocale()[0],
     )
+
+
+@dataclass
+class AsyncVBANClient(asyncio.DatagramProtocol):
+    application_data: VBANApplicationData = field(default_factory=_default_application_data)
     ignore_audio_streams: bool = True
     default_queue_size: int = 200
 
-    _registered_devices: dict = field(default_factory=dict)
+    _registered_devices: dict = field(default_factory=dict, repr=False)
 
-    _transport: Any = field(default=None, init=False)
+    _transport: Any = field(default=None, init=False, repr=False)
 
     async def listen(self, address="0.0.0.0", port=6980, loop=None):
         loop = loop or asyncio.get_running_loop()
@@ -38,13 +42,18 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
         # Create a socket and set the options
         from .protocol import VBANListenerProtocol
 
-        _, proto = await loop.create_datagram_endpoint(
+        self._transport, proto = await loop.create_datagram_endpoint(
             lambda: VBANListenerProtocol(self),
             local_addr=(address, port),
             allow_broadcast=not self.ignore_audio_streams,
         )
 
         return proto.done
+
+    def close(self):
+        if self._transport:
+            self._transport.close()
+            self._transport = None
 
     @staticmethod
     def _get_device_name():

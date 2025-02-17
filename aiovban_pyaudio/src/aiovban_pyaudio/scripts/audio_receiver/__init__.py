@@ -8,6 +8,7 @@ from setproctitle import setproctitle
 from aiovban import VBANApplicationData, DeviceType
 from aiovban.asyncio import AsyncVBANClient
 from aiovban.enums import Features
+from aiovban.asyncio.util import BackPressureStrategy
 from ..util import get_device_by_name
 from ... import VBANAudioPlayer
 
@@ -62,7 +63,7 @@ async def run_loop(config):
             port = 6980
 
         host = client.register_device(address, port)
-        receiver = host.receive_stream(stream_name)
+        receiver = host.receive_stream(stream_name, back_pressure_strategy=BackPressureStrategy.DRAIN_OLDEST)
         players.append(
             VBANAudioPlayer(
                 stream=receiver, pyaudio=pyaudio_instance, device_index=output_device

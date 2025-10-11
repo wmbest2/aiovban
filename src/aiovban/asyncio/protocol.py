@@ -16,7 +16,8 @@ logger = logging.getLogger(__package__)
 class VBANBaseProtocol(asyncio.DatagramProtocol):
     client: AsyncVBANClient
 
-    done: Future = asyncio.get_event_loop().create_future()
+    def __post_init__(self):
+        self.done: Future = asyncio.get_event_loop().create_future()
 
     def connection_made(self, transport):
         pass

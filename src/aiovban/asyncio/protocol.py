@@ -31,7 +31,10 @@ class VBANBaseProtocol(asyncio.DatagramProtocol):
     def connection_lost(self, exc):
         if self.done.done():
             return
-        self.done.set_exception(exc)
+        if exc:
+            self.done.set_exception(exc)
+        else:
+            self.done.set_result(exc)
 
 
 @dataclass

@@ -39,7 +39,7 @@ class VBANHeader(SyntheticMixin):
         obj.byte_a = data[5]
         obj.byte_b = data[6]
         obj.byte_c = data[7]
-        obj.streamname = data[8:24].decode("utf-8").strip("\x00")
+        obj.streamname = data[8:24].split(b"\x00", 1)[0].decode("utf-8")
         obj.framecount = struct.unpack("<L", data[24:28])[0]
         return obj
 

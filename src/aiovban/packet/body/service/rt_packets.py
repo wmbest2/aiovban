@@ -37,15 +37,28 @@ class RTPacketBodyType0(PacketBody):
 
     @classmethod
     def buildBuses(cls, data):
-        bus_states = struct.unpack("<" + "L" * 8, data[248:280])
-        bus_gain = struct.unpack("<" + "H" * 8, data[408:424])
+        # Validate data size for bus operations
+        if len(data) < 1384:  # Minimum size needed for 8 buses (904 + 8*60)
+            raise ValueError(f"Insufficient data for bus parsing: expected at least 1384 bytes, got {len(data)}")
+        
+        try:
+            bus_states = struct.unpack("<" + "L" * 8, data[248:280])
+            bus_gain = struct.unpack("<" + "H" * 8, data[408:424])
+        except struct.error as e:
+            raise ValueError(f"Failed to unpack bus data: {e}")
 
         bus_names = []
         for n in range(8):
             bus_start = 904 + (n * 60)
-            bus_names.append(
-                data[bus_start : bus_start + 60].decode("utf-8").strip("\x00")
-            )
+            bus_end = bus_start + 60
+            if bus_end > len(data):
+                raise ValueError(f"Insufficient data for bus {n}: data ends at {len(data)}, need {bus_end}")
+            try:
+                bus_names.append(
+                    data[bus_start:bus_end].decode("utf-8", errors="ignore").strip("\x00")
+                )
+            except UnicodeDecodeError:
+                bus_names.append("")  # Fallback for invalid UTF-8
 
         return [
             Bus(label=bus_names[n], state=State(bus_states[n]), gain=bus_gain[n])
@@ -54,23 +67,35 @@ class RTPacketBodyType0(PacketBody):
 
     @classmethod
     def buildStrips(cls, data):
+        # Validate data size for strip operations
+        if len(data) < 904:  # Minimum size needed for strips (424 + 8*60)
+            raise ValueError(f"Insufficient data for strip parsing: expected at least 904 bytes, got {len(data)}")
 
-        strip_states = struct.unpack("<" + "L" * 8, data[216:248])
-        layer1_gain = struct.unpack("<" + "H" * 8, data[280:296])
-        layer2_gain = struct.unpack("<" + "H" * 8, data[296:312])
-        layer3_gain = struct.unpack("<" + "H" * 8, data[312:328])
-        layer4_gain = struct.unpack("<" + "H" * 8, data[328:344])
-        layer5_gain = struct.unpack("<" + "H" * 8, data[344:360])
-        layer6_gain = struct.unpack("<" + "H" * 8, data[360:376])
-        layer7_gain = struct.unpack("<" + "H" * 8, data[376:392])
-        layer8_gain = struct.unpack("<" + "H" * 8, data[392:408])
+        try:
+            strip_states = struct.unpack("<" + "L" * 8, data[216:248])
+            layer1_gain = struct.unpack("<" + "H" * 8, data[280:296])
+            layer2_gain = struct.unpack("<" + "H" * 8, data[296:312])
+            layer3_gain = struct.unpack("<" + "H" * 8, data[312:328])
+            layer4_gain = struct.unpack("<" + "H" * 8, data[328:344])
+            layer5_gain = struct.unpack("<" + "H" * 8, data[344:360])
+            layer6_gain = struct.unpack("<" + "H" * 8, data[360:376])
+            layer7_gain = struct.unpack("<" + "H" * 8, data[376:392])
+            layer8_gain = struct.unpack("<" + "H" * 8, data[392:408])
+        except struct.error as e:
+            raise ValueError(f"Failed to unpack strip data: {e}")
 
         strip_names = []
         for n in range(8):
             strip_start = 424 + (n * 60)
-            strip_names.append(
-                data[strip_start : strip_start + 60].decode("utf-8").strip("\x00")
-            )
+            strip_end = strip_start + 60
+            if strip_end > len(data):
+                raise ValueError(f"Insufficient data for strip {n}: data ends at {len(data)}, need {strip_end}")
+            try:
+                strip_names.append(
+                    data[strip_start:strip_end].decode("utf-8", errors="ignore").strip("\x00")
+                )
+            except UnicodeDecodeError:
+                strip_names.append("")  # Fallback for invalid UTF-8
 
         strips = []
         for n in range(8):
@@ -93,20 +118,27 @@ class RTPacketBodyType0(PacketBody):
 
     @classmethod
     def unpack(cls, data):
-        print(data)
-        return RTPacketBodyType0(
-            voice_meeter_type=VoicemeeterType(data[0]),
-            # reserved = data[1],
-            buffer_size=struct.unpack("<H", data[2:4])[0],
-            voice_meeter_version=cls.versionFromBytes(data),
-            # optionBits = data[8:12]
-            sample_rate=VBANSampleRate(struct.unpack("<L", data[12:16])[0]),
-            input_levels=list(struct.unpack("<" + "H" * 34, data[16:84])),
-            output_levels=list(struct.unpack("<" + "H" * 64, data[84:212])),
-            transport_bits=struct.unpack("<L", data[212:216])[0],
-            strips=cls.buildStrips(data),
-            buses=cls.buildBuses(data),
-        )
+        # Validate minimum data size
+        if len(data) < 1384:  # Minimum size for complete RT packet
+            raise ValueError(f"Insufficient data for RT packet: expected at least 1384 bytes, got {len(data)}")
+        
+        try:
+            print(data)
+            return RTPacketBodyType0(
+                voice_meeter_type=VoicemeeterType(data[0]),
+                # reserved = data[1],
+                buffer_size=struct.unpack("<H", data[2:4])[0],
+                voice_meeter_version=cls.versionFromBytes(data),
+                # optionBits = data[8:12]
+                sample_rate=VBANSampleRate(struct.unpack("<L", data[12:16])[0]),
+                input_levels=list(struct.unpack("<" + "H" * 34, data[16:84])),
+                output_levels=list(struct.unpack("<" + "H" * 64, data[84:212])),
+                transport_bits=struct.unpack("<L", data[212:216])[0],
+                strips=cls.buildStrips(data),
+                buses=cls.buildBuses(data),
+            )
+        except (struct.error, ValueError) as e:
+            raise ValueError(f"Failed to unpack RT packet: {e}")
 
     def pack(self):
         version_bytes = struct.pack(

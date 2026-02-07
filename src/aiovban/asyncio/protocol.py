@@ -15,33 +15,42 @@ logger = logging.getLogger(__package__)
 @dataclass
 class VBANBaseProtocol(asyncio.DatagramProtocol):
     client: AsyncVBANClient
-
-    def __post_init__(self):
-        self.done: Future = asyncio.get_event_loop().create_future()
+    done: Future = field(default=None, init=False)
 
     def connection_made(self, transport):
-        pass
+        # Create future in async context when protocol is established
+        if self.done is None:
+            try:
+                loop = asyncio.get_running_loop()
+                self.done = loop.create_future()
+            except RuntimeError:
+                # No running loop, create a simple future
+                self.done = asyncio.Future()
 
     def datagram_received(self, data, addr):
         pass
 
     def error_received(self, exc):
-        self.done.set_exception(exc)
+        if self.done and not self.done.done():
+            self.done.set_exception(exc)
 
     def connection_lost(self, exc):
-        if self.done.done():
+        if self.done and self.done.done():
             return
         if exc:
-            self.done.set_exception(exc)
+            if self.done:
+                self.done.set_exception(exc)
         else:
-            self.done.set_result(exc)
+            if self.done:
+                self.done.set_result(exc)
 
 
 @dataclass
 class VBANListenerProtocol(VBANBaseProtocol):
-    loop: asyncio.BaseEventLoop = asyncio.get_running_loop()
+    _pending_tasks: set = field(default_factory=set, init=False)
 
     def connection_made(self, transport):
+        super().connection_made(transport)
         logger.info(f"Connection made to {transport}")
 
     def datagram_received(self, data, addr):
@@ -49,9 +58,14 @@ class VBANListenerProtocol(VBANBaseProtocol):
             if self.client.quick_reject(addr[0]):
                 return
             packet = VBANPacket.unpack(data)
-            asyncio.create_task(self.client.process_packet(addr[0], addr[1], packet))
-        except VBANHeaderException as e:
+            task = asyncio.create_task(self.client.process_packet(addr[0], addr[1], packet))
+            # Track task and add callback to remove it when done
+            self._pending_tasks.add(task)
+            task.add_done_callback(self._pending_tasks.discard)
+        except (VBANHeaderException, ValueError) as e:
             logger.info(f"Error unpacking packet: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error processing packet: {e}")
 
 
 @dataclass

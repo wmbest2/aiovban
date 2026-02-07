@@ -25,11 +25,9 @@ class BackPressureQueue:
     )
     _mutex: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
     _queue: asyncio.Queue = field(default_factory=asyncio.Queue, init=False)
-    _loop: asyncio.AbstractEventLoop = field(default=None, init=False)
 
     def __post_init__(self):
         self._queue = asyncio.Queue(self.queue_size)
-        self._loop = asyncio.get_event_loop()
 
     async def put(self, packet: Any):
         if self.back_pressure_strategy in [

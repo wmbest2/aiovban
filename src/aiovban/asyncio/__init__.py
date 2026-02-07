@@ -89,7 +89,7 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
     async def send_ping(
         self, address, port, type: PingFunctions = PingFunctions.Request
     ):
-        print(f"Sending ping to {address}:{port}")
+        logger.debug(f"Sending ping to {address}:{port}")
         response_body = self.get_ping_response()
         packet = VBANPacket(
             header=VBANServiceHeader(

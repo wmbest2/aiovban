@@ -60,7 +60,7 @@ class BackPressureQueue:
                 try:
                     self._queue.get_nowait()
                 except asyncio.QueueEmpty:
-                    print(f"{self.queue_name} empty")
+                    logger.debug(f"{self.queue_name} empty")
         # logger.debug(f"Drained {int(self.queue_size / 2)} items from {self.queue_name}")
 
     async def get(self):

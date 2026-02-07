@@ -117,7 +117,6 @@ class RTPacketBodyType0(PacketBody):
             raise ValueError(f"Insufficient data for RT packet: expected at least 1384 bytes, got {len(data)}")
         
         try:
-            print(data)
             return RTPacketBodyType0(
                 voice_meeter_type=VoicemeeterType(data[0]),
                 # reserved = data[1],
@@ -149,7 +148,6 @@ class RTPacketBodyType0(PacketBody):
             struct.pack("<" + "H" * 8, *[strip.layers[i] for strip in self.strips])
             for i in range(8)
         )
-        print(len(layer_gains_bytes))
         bus_states_bytes = struct.pack(
             "<" + "L" * 8, *[int(bus.state) for bus in self.buses]
         )

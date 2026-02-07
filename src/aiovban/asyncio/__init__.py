@@ -48,7 +48,7 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
             allow_broadcast=not self.ignore_audio_streams,
         )
 
-        return proto.done
+        await proto.done
 
     def close(self):
         if self._transport:

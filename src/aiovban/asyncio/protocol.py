@@ -16,7 +16,8 @@ logger = logging.getLogger(__package__)
 class VBANBaseProtocol(asyncio.DatagramProtocol):
     client: AsyncVBANClient
 
-    done: Future = asyncio.get_event_loop().create_future()
+    def __post_init__(self):
+        self.done: Future = asyncio.get_event_loop().create_future()
 
     def connection_made(self, transport):
         pass
@@ -30,7 +31,10 @@ class VBANBaseProtocol(asyncio.DatagramProtocol):
     def connection_lost(self, exc):
         if self.done.done():
             return
-        self.done.set_exception(exc)
+        if exc:
+            self.done.set_exception(exc)
+        else:
+            self.done.set_result(exc)
 
 
 @dataclass

@@ -4,6 +4,13 @@ import struct
 from .. import PacketBody
 from ....enums import VBANSampleRate, State, VoicemeeterType
 
+# Minimum packet size for RT packets: 28 byte header + 1356 byte body
+# Body structure: 1 (type) + 1 (reserved) + 2 (buffer) + 4 (version) + 4 (options) +
+#                 4 (rate) + 68 (input levels) + 128 (output levels) + 4 (transport) +
+#                 32 (strip states) + 32 (bus states) + 128 (layers) + 16 (bus gain) +
+#                 480 (strip names) + 480 (bus names) = 1384 bytes minimum
+MIN_RT_PACKET_SIZE = 1384
+
 
 @dataclass
 class Bus:
@@ -38,8 +45,8 @@ class RTPacketBodyType0(PacketBody):
     @classmethod
     def buildBuses(cls, data):
         # Validate data size for bus operations
-        if len(data) < 1384:  # Minimum size needed for 8 buses (904 + 8*60)
-            raise ValueError(f"Insufficient data for bus parsing: expected at least 1384 bytes, got {len(data)}")
+        if len(data) < MIN_RT_PACKET_SIZE:
+            raise ValueError(f"Insufficient data for bus parsing: expected at least {MIN_RT_PACKET_SIZE} bytes, got {len(data)}")
         
         try:
             bus_states = struct.unpack("<" + "L" * 8, data[248:280])
@@ -113,8 +120,8 @@ class RTPacketBodyType0(PacketBody):
     @classmethod
     def unpack(cls, data):
         # Validate minimum data size
-        if len(data) < 1384:  # Minimum size for complete RT packet
-            raise ValueError(f"Insufficient data for RT packet: expected at least 1384 bytes, got {len(data)}")
+        if len(data) < MIN_RT_PACKET_SIZE:
+            raise ValueError(f"Insufficient data for RT packet: expected at least {MIN_RT_PACKET_SIZE} bytes, got {len(data)}")
         
         try:
             return RTPacketBodyType0(

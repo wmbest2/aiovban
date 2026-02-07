@@ -28,6 +28,12 @@ class VBANDevice:
     _client: Any = None
     _streams: dict = field(default_factory=dict)
 
+    @staticmethod
+    def _validate_port(port: int):
+        """Validate that port is in valid range (0-65535)"""
+        if not (0 <= port <= 65535):
+            raise ValueError(f"Invalid port {port}: must be between 0 and 65535")
+
     async def handle_packet(self, address, packet: VBANPacket):
         stream: VBANStream = self._streams.get(packet.header.streamname)
         from ..packet.headers.service import VBANServiceHeader
@@ -69,8 +75,7 @@ class VBANDevice:
         back_pressure_strategy=BackPressureStrategy.DROP,
     ):
         port = port or self.default_port
-        if not (0 <= port <= 65535):
-            raise ValueError(f"Invalid port {port}: must be between 0 and 65535")
+        self._validate_port(port)
         stream = BufferedVBANOutgoingStream(
             stream_name,
             _client=self._client,
@@ -87,8 +92,7 @@ class VBANDevice:
         port: int = None,
     ):
         port = port or self.default_port
-        if not (0 <= port <= 65535):
-            raise ValueError(f"Invalid port {port}: must be between 0 and 65535")
+        self._validate_port(port)
         stream = VBANTextStream(stream_name, _client=self._client, baud_rate=baud_rate)
         await stream.connect(self.address, port)
         self._streams[stream_name] = stream
@@ -100,8 +104,7 @@ class VBANDevice:
         automatic_renewal=True,
         back_pressure_strategy=BackPressureStrategy.DROP,
     ):
-        if not (0 <= self.default_port <= 65535):
-            raise ValueError(f"Invalid port {self.default_port}: must be between 0 and 65535")
+        self._validate_port(self.default_port)
         stream = VBANRTStream(
             name="VBAN-RTP",
             queue_size=100,

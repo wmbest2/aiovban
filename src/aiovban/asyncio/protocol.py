@@ -19,13 +19,8 @@ class VBANBaseProtocol(asyncio.DatagramProtocol):
 
     def connection_made(self, transport):
         # Create future in async context when protocol is established
-        if self.done is None:
-            try:
-                loop = asyncio.get_running_loop()
-                self.done = loop.create_future()
-            except RuntimeError:
-                # No running loop, create a simple future
-                self.done = asyncio.Future()
+        loop = asyncio.get_running_loop()
+        self.done = loop.create_future()
 
     def datagram_received(self, data, addr):
         pass
@@ -35,14 +30,14 @@ class VBANBaseProtocol(asyncio.DatagramProtocol):
             self.done.set_exception(exc)
 
     def connection_lost(self, exc):
-        if self.done and self.done.done():
+        if not self.done:
+            return
+        if self.done.done():
             return
         if exc:
-            if self.done:
-                self.done.set_exception(exc)
+            self.done.set_exception(exc)
         else:
-            if self.done:
-                self.done.set_result(exc)
+            self.done.set_result(exc)
 
 
 @dataclass

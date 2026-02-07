@@ -98,6 +98,8 @@ This project follows [Semantic Versioning](https://semver.org/):
 2. Verify the package version doesn't already exist on PyPI (you cannot overwrite existing versions)
 3. Check that the package builds successfully locally with `python -m build`
 
+**Note**: You may see a warning from `twine check` about "unrecognized or malformed field 'license-file'" when using setuptools 77+. This is a temporary compatibility issue between newer setuptools and twine versions and doesn't prevent uploading to PyPI. The package will upload successfully despite this warning.
+
 ## Post-Release
 
 After a successful release:

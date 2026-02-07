@@ -47,7 +47,7 @@ class VBANBaseProtocol(asyncio.DatagramProtocol):
 
 @dataclass
 class VBANListenerProtocol(VBANBaseProtocol):
-    _pending_tasks: set = field(default_factory=set, init=False)
+    pending_tasks: set = field(default_factory=set, init=False)
 
     def connection_made(self, transport):
         super().connection_made(transport)
@@ -60,8 +60,8 @@ class VBANListenerProtocol(VBANBaseProtocol):
             packet = VBANPacket.unpack(data)
             task = asyncio.create_task(self.client.process_packet(addr[0], addr[1], packet))
             # Track task and add callback to remove it when done
-            self._pending_tasks.add(task)
-            task.add_done_callback(self._pending_tasks.discard)
+            self.pending_tasks.add(task)
+            task.add_done_callback(self.pending_tasks.discard)
         except (VBANHeaderException, ValueError) as e:
             logger.info(f"Error unpacking packet: {e}")
         except Exception as e:

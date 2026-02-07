@@ -53,12 +53,9 @@ class RTPacketBodyType0(PacketBody):
             bus_end = bus_start + 60
             if bus_end > len(data):
                 raise ValueError(f"Insufficient data for bus {n}: data ends at {len(data)}, need {bus_end}")
-            try:
-                bus_names.append(
-                    data[bus_start:bus_end].decode("utf-8", errors="ignore").strip("\x00")
-                )
-            except UnicodeDecodeError:
-                bus_names.append("")  # Fallback for invalid UTF-8
+            bus_names.append(
+                data[bus_start:bus_end].decode("utf-8", errors="replace").strip("\x00")
+            )
 
         return [
             Bus(label=bus_names[n], state=State(bus_states[n]), gain=bus_gain[n])
@@ -90,12 +87,9 @@ class RTPacketBodyType0(PacketBody):
             strip_end = strip_start + 60
             if strip_end > len(data):
                 raise ValueError(f"Insufficient data for strip {n}: data ends at {len(data)}, need {strip_end}")
-            try:
-                strip_names.append(
-                    data[strip_start:strip_end].decode("utf-8", errors="ignore").strip("\x00")
-                )
-            except UnicodeDecodeError:
-                strip_names.append("")  # Fallback for invalid UTF-8
+            strip_names.append(
+                data[strip_start:strip_end].decode("utf-8", errors="replace").strip("\x00")
+            )
 
         strips = []
         for n in range(8):

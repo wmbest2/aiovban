@@ -78,7 +78,7 @@ class BufferedVBANOutgoingStream(VBANOutgoingStream):
     back_pressure_strategy: BackPressureStrategy = BackPressureStrategy.BLOCK
 
     _buffer: BackPressureQueue = field(default=None, init=False)
-    _send_task: Any = field(default=None, init=False)
+    send_task: Any = field(default=None, init=False)
 
     def __post_init__(self):
         self._buffer = BackPressureQueue(
@@ -89,7 +89,7 @@ class BufferedVBANOutgoingStream(VBANOutgoingStream):
 
     async def connect(self, address, port, loop=None):
         await super().connect(address, port, loop)
-        self._send_task = asyncio.create_task(self._send_buffered_packets_wrapper())
+        self.send_task = asyncio.create_task(self._send_buffered_packets_wrapper())
 
     async def _send_buffered_packets_wrapper(self):
         """Wrapper to handle exceptions in the background task"""
@@ -121,8 +121,8 @@ class VBANTextStream(VBANOutgoingStream):
 class VBANRTStream(VBANOutgoingStream, VBANIncomingStream):
     automatic_renewal: bool = True
     update_interval: int = 0xFF
-    _renewal_task: Any = field(default=None, init=False)
-    _pending_timers: set = field(default_factory=set, init=False)
+    renewal_task: Any = field(default=None, init=False)
+    pending_timers: set = field(default_factory=set, init=False)
 
     async def register_for_updates(self):
         # Register for updates
@@ -130,23 +130,23 @@ class VBANRTStream(VBANOutgoingStream, VBANIncomingStream):
         rt_header = VBANServiceHeader(
             service=ServiceType.RTPacketRegister, additional_info=self.update_interval
         )
-        registraiton_expiry = asyncio.Future()
+        registration_expiry = asyncio.Future()
 
         async def start_expiry_timer():
             try:
                 await asyncio.sleep(self.update_interval)
-                if not registraiton_expiry.done():
-                    registraiton_expiry.set_result(None)
+                if not registration_expiry.done():
+                    registration_expiry.set_result(None)
             except Exception as e:
                 logger.error(f"Error in expiry timer: {e}")
-                if not registraiton_expiry.done():
-                    registraiton_expiry.set_exception(e)
+                if not registration_expiry.done():
+                    registration_expiry.set_exception(e)
 
         await self.send_packet(VBANPacket(rt_header))
         timer_task = asyncio.create_task(start_expiry_timer())
-        self._pending_timers.add(timer_task)
-        timer_task.add_done_callback(self._pending_timers.discard)
-        return registraiton_expiry
+        self.pending_timers.add(timer_task)
+        timer_task.add_done_callback(self.pending_timers.discard)
+        return registration_expiry
 
     async def renew_updates(self):
         try:
@@ -172,4 +172,4 @@ class VBANRTStream(VBANOutgoingStream, VBANIncomingStream):
     async def connect(self, address, port, loop=None):
         await super().connect(address, port, loop)
         if self.automatic_renewal:
-            self._renewal_task = asyncio.create_task(self.renew_updates())
+            self.renewal_task = asyncio.create_task(self.renew_updates())

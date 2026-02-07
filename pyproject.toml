@@ -29,6 +29,14 @@ Issues = "https://github.com/wmbest2/aiovban/issues"
 Repository = "https://github.com/wmbest2/aiovban"
 Changelog = "https://github.com/wmbest2/aiovban/releases"
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "tox>=4.0",
+    "build>=1.0",
+    "twine>=6.0",
+]
+
 
 [tool.tox]
 requires = ["tox>=4.19"]

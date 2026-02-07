@@ -69,7 +69,7 @@ receiver = VBANAudioPlayer(stream=windows_mic_out)
 
 ## Contributing
 
-Contributions are welcome! Please fork the repository and submit a pull request with your changes.
+Contributions are welcome! Please see our [Contributing Guide](CONTRIBUTING.md) for details on how to get started, our development workflow, and coding standards.
 
 ## License
 

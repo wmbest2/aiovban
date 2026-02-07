@@ -30,6 +30,10 @@ class VBANPacket:
     def unpack(cls, data):
         from .body import Utf8StringBody
 
+        # Validate minimum packet size
+        if len(data) < 28:
+            raise ValueError(f"Packet too small: expected at least 28 bytes, got {len(data)}")
+
         header = VBANHeader.unpack(data)
         if isinstance(header, VBANServiceHeader):
             if header.service == ServiceType.Identification:

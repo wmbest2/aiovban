@@ -10,6 +10,7 @@ authors = [
 ]
 description = "An asyncio VBAN implementation"
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -18,13 +19,15 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+keywords = ["vban", "audio", "asyncio", "voicemeeter"]
 
 [project.urls]
 Homepage = "https://github.com/wmbest2/aiovban"
 Issues = "https://github.com/wmbest2/aiovban/issues"
+Repository = "https://github.com/wmbest2/aiovban"
+Changelog = "https://github.com/wmbest2/aiovban/releases"
 
 
 [tool.tox]

@@ -72,9 +72,9 @@ class Ping(PacketBody, VBANApplicationData):
             device_type=DeviceType(unpacked_data[0]),
             features=Features(unpacked_data[1]),
             feature_extra=unpacked_data[2],
-            preferred_rate=VBANSampleRate(unpacked_data[3]),
-            min_rate=VBANSampleRate(unpacked_data[4]),
-            max_rate=VBANSampleRate(unpacked_data[5]),
+            preferred_rate=VBANSampleRate.find(unpacked_data[3]),
+            min_rate=VBANSampleRate.find(unpacked_data[4]),
+            max_rate=VBANSampleRate.find(unpacked_data[5]),
             color_rgb=hex(unpacked_data[6]),
             version=f"{unpacked_data[10]}.{unpacked_data[9]}.{unpacked_data[8]}.{unpacked_data[7]}",
             gps_position=unpacked_data[11]

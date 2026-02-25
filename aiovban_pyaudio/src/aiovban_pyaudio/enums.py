@@ -6,6 +6,7 @@ from aiovban.packet.headers.audio import BitResolution
 
 
 class VBANPyAudioFormatMapping(Enum):
+    BYTE8 = BitResolution.BYTE8, pyaudio.paUInt8
     INT16 = BitResolution.INT16, pyaudio.paInt16
     INT24 = BitResolution.INT24, pyaudio.paInt24
     INT32 = BitResolution.INT32, pyaudio.paInt32

@@ -47,7 +47,7 @@ class VBANHeader(SyntheticMixin):
         obj.byte_c = data[7]
         # Safely decode streamname with error handling
         obj.streamname = (
-            data[8:24].split(b"\x00", 1)[0].decode("utf-8", errors="replace")
+            data[8:24].split(b"\x00", 1)[0].decode("utf-8")
         )
         try:
             obj.framecount = struct.unpack("<L", data[24:28])[0]

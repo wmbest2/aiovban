@@ -65,7 +65,7 @@ class RTPacketBodyType0(PacketBody):
                     f"Insufficient data for bus {n}: data ends at {len(data)}, need {bus_end}"
                 )
             bus_names.append(
-                data[bus_start:bus_end].decode("utf-8", errors="replace").strip("\x00")
+                data[bus_start:bus_end].decode("utf-8").strip("\x00")
             )
 
         return [
@@ -104,7 +104,7 @@ class RTPacketBodyType0(PacketBody):
                 )
             strip_names.append(
                 data[strip_start:strip_end]
-                .decode("utf-8", errors="replace")
+                .decode("utf-8")
                 .strip("\x00")
             )
 

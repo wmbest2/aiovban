@@ -64,8 +64,10 @@ class SyntheticMixin:
             def getter(s, fields=fields):
                 return functools.reduce(
                     lambda x, y: x
-                    | (int(getattr(s, y.name)) & y.metadata[MASK])
-                    - y.metadata["offset"],
+                    | (
+                        (int(getattr(s, y.name)) - y.metadata["offset"])
+                        & y.metadata[MASK]
+                    ),
                     fields,
                     0,
                 )

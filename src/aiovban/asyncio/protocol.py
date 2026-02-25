@@ -53,7 +53,9 @@ class VBANListenerProtocol(VBANBaseProtocol):
             if self.client.quick_reject(addr[0]):
                 return
             packet = VBANPacket.unpack(data)
-            task = asyncio.create_task(self.client.process_packet(addr[0], addr[1], packet))
+            task = asyncio.create_task(
+                self.client.process_packet(addr[0], addr[1], packet)
+            )
             # Track task and add callback to remove it when done
             self.pending_tasks.add(task)
             task.add_done_callback(self.pending_tasks.discard)

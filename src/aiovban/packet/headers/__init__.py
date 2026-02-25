@@ -28,8 +28,10 @@ class VBANHeader(SyntheticMixin):
     def unpack(cls, data: bytes):
         # Validate minimum header size
         if len(data) < 28:
-            raise VBANHeaderException(f"Insufficient data for VBAN header: expected at least 28 bytes, got {len(data)}")
-        
+            raise VBANHeaderException(
+                f"Insufficient data for VBAN header: expected at least 28 bytes, got {len(data)}"
+            )
+
         (sub, sub_data) = data[4] & 0xE0, data[4] & 0x1F
         if data[0:4] != b"VBAN":
             raise VBANHeaderException("Invalid VBAN Header")
@@ -44,7 +46,9 @@ class VBANHeader(SyntheticMixin):
         obj.byte_b = data[6]
         obj.byte_c = data[7]
         # Safely decode streamname with error handling
-        obj.streamname = data[8:24].split(b"\x00", 1)[0].decode("utf-8", errors="replace")
+        obj.streamname = (
+            data[8:24].split(b"\x00", 1)[0].decode("utf-8", errors="replace")
+        )
         try:
             obj.framecount = struct.unpack("<L", data[24:28])[0]
         except struct.error as e:

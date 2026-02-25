@@ -32,7 +32,9 @@ class VBANPacket:
 
         # Validate minimum packet size
         if len(data) < 28:
-            raise ValueError(f"Packet too small: expected at least 28 bytes, got {len(data)}")
+            raise ValueError(
+                f"Packet too small: expected at least 28 bytes, got {len(data)}"
+            )
 
         header = VBANHeader.unpack(data)
         if isinstance(header, VBANServiceHeader):

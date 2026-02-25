@@ -48,7 +48,7 @@ class VBANAudioSender:
         """Splits bytes into chunks of a given size."""
         return [data[i : i + chunk_size] for i in range(0, len(data), chunk_size)]
 
-    async def pack_audio_data(self, audio_data):
+    def pack_audio_data(self, audio_data):
         packet = VBANPacket(
             header=VBANAudioHeader(
                 streamname=self.stream.name,
@@ -61,14 +61,14 @@ class VBANAudioSender:
             body=BytesBody(audio_data),
         )
         if self._loop:
-            asyncio.create_task(self.stream.send_packet(packet))
+            asyncio.run_coroutine_threadsafe(self.stream.send_packet(packet), self._loop)
 
-    async def send_all_audio_data(self, audio_data):
+    def send_all_audio_data(self, audio_data):
         chunks = self.split_bytes_into_chunks(
             audio_data, len(audio_data) // self.sample_buffer_size
         )
         for chunk in chunks:
-            await self.pack_audio_data(chunk)
+            self.pack_audio_data(chunk)
 
     def read_stream(self, amount):
         return self._stream.read(amount, exception_on_overflow=False)
@@ -83,9 +83,7 @@ class VBANAudioSender:
                 audio_data = self.read_stream(
                     self.framebuffer_size * self.sample_buffer_size
                 )
-                asyncio.run_coroutine_threadsafe(
-                    self.send_all_audio_data(audio_data), origin_loop
-                ).result()
+                self.send_all_audio_data(audio_data)
         except asyncio.CancelledError as _:
             self.stop()
 

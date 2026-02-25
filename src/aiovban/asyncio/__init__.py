@@ -28,7 +28,9 @@ def _default_application_data():
 
 @dataclass
 class AsyncVBANClient(asyncio.DatagramProtocol):
-    application_data: VBANApplicationData = field(default_factory=_default_application_data)
+    application_data: VBANApplicationData = field(
+        default_factory=_default_application_data
+    )
     ignore_audio_streams: bool = True
     default_queue_size: int = 200
 
@@ -115,11 +117,11 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
             ip_address = addrinfo[0][4][0]  # Extract IP from sockaddr
         except (socket.gaierror, OSError) as e:
             raise ValueError(f"Invalid address '{address}': {e}")
-        
+
         # Validate port range
         if not (0 <= port <= 65535):
             raise ValueError(f"Invalid port {port}: must be between 0 and 65535")
-        
+
         if ip_address in self._registered_devices:
             return self._registered_devices[ip_address]
 

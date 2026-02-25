@@ -42,6 +42,10 @@ class SyntheticMixin:
     """
 
     def __post_init__(self):
+        # Only initialize synthetic properties once per class
+        if hasattr(self.__class__, "_synthetic_initialized"):
+            return
+
         from itertools import groupby
 
         masks_by_name = {
@@ -51,7 +55,8 @@ class SyntheticMixin:
                 key=lambda x: x.metadata.get(SYNTHETIC_NAME),
             )
         }
-        masks_by_name.__delitem__(None)
+        if None in masks_by_name:
+            masks_by_name.__delitem__(None)
 
         for synthetic, fields in masks_by_name.items():
             assert sum(f.metadata[MASK] for f in fields) <= 0xFF
@@ -89,3 +94,5 @@ class SyntheticMixin:
                 synthetic,
                 property(fget=getter, fset=setter, fdel=deleter),
             )
+
+        self.__class__._synthetic_initialized = True

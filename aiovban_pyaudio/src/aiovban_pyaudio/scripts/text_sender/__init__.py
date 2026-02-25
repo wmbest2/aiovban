@@ -26,6 +26,7 @@ def setup_logging():
     handler.setFormatter(formatter)
     root.addHandler(handler)
 
+
 async def run_loop(config):
     application_data = VBANApplicationData(
         application_name="VBAN Audio Sender",

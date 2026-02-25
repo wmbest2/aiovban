@@ -46,8 +46,10 @@ class RTPacketBodyType0(PacketBody):
     def buildBuses(cls, data):
         # Validate data size for bus operations
         if len(data) < MIN_RT_PACKET_SIZE:
-            raise ValueError(f"Insufficient data for bus parsing: expected at least {MIN_RT_PACKET_SIZE} bytes, got {len(data)}")
-        
+            raise ValueError(
+                f"Insufficient data for bus parsing: expected at least {MIN_RT_PACKET_SIZE} bytes, got {len(data)}"
+            )
+
         try:
             bus_states = struct.unpack("<" + "L" * 8, data[248:280])
             bus_gain = struct.unpack("<" + "H" * 8, data[408:424])
@@ -59,7 +61,9 @@ class RTPacketBodyType0(PacketBody):
             bus_start = 904 + (n * 60)
             bus_end = bus_start + 60
             if bus_end > len(data):
-                raise ValueError(f"Insufficient data for bus {n}: data ends at {len(data)}, need {bus_end}")
+                raise ValueError(
+                    f"Insufficient data for bus {n}: data ends at {len(data)}, need {bus_end}"
+                )
             bus_names.append(
                 data[bus_start:bus_end].decode("utf-8", errors="replace").strip("\x00")
             )
@@ -73,7 +77,9 @@ class RTPacketBodyType0(PacketBody):
     def buildStrips(cls, data):
         # Validate data size for strip operations
         if len(data) < 904:  # Minimum size needed for strips (424 + 8*60)
-            raise ValueError(f"Insufficient data for strip parsing: expected at least 904 bytes, got {len(data)}")
+            raise ValueError(
+                f"Insufficient data for strip parsing: expected at least 904 bytes, got {len(data)}"
+            )
 
         try:
             strip_states = struct.unpack("<" + "L" * 8, data[216:248])
@@ -93,9 +99,13 @@ class RTPacketBodyType0(PacketBody):
             strip_start = 424 + (n * 60)
             strip_end = strip_start + 60
             if strip_end > len(data):
-                raise ValueError(f"Insufficient data for strip {n}: data ends at {len(data)}, need {strip_end}")
+                raise ValueError(
+                    f"Insufficient data for strip {n}: data ends at {len(data)}, need {strip_end}"
+                )
             strip_names.append(
-                data[strip_start:strip_end].decode("utf-8", errors="replace").strip("\x00")
+                data[strip_start:strip_end]
+                .decode("utf-8", errors="replace")
+                .strip("\x00")
             )
 
         strips = []
@@ -121,8 +131,10 @@ class RTPacketBodyType0(PacketBody):
     def unpack(cls, data):
         # Validate minimum data size
         if len(data) < MIN_RT_PACKET_SIZE:
-            raise ValueError(f"Insufficient data for RT packet: expected at least {MIN_RT_PACKET_SIZE} bytes, got {len(data)}")
-        
+            raise ValueError(
+                f"Insufficient data for RT packet: expected at least {MIN_RT_PACKET_SIZE} bytes, got {len(data)}"
+            )
+
         try:
             return RTPacketBodyType0(
                 voice_meeter_type=VoicemeeterType(data[0]),

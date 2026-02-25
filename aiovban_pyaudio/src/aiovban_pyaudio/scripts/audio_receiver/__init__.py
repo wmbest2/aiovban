@@ -27,8 +27,10 @@ def setup_logging(debug=False):
 
 
 async def wait_for_first_done(*tasks):
+    # Wrap coroutines in tasks, as asyncio.wait() requires tasks/futures since Python 3.11
+    wrapped = [asyncio.ensure_future(t) for t in tasks]
     (done_tasks, pending) = await asyncio.wait(
-        tasks, return_when=asyncio.FIRST_COMPLETED
+        wrapped, return_when=asyncio.FIRST_COMPLETED
     )
     for pending in pending:
         pending.cancel()

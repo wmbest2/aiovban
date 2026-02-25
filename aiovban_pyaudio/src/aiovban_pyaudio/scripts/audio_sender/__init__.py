@@ -34,8 +34,8 @@ async def wait_for_first_done(*tasks):
     (done_tasks, pending) = await asyncio.wait(
         wrapped, return_when=asyncio.FIRST_COMPLETED
     )
-    for pending in pending:
-        pending.cancel()
+    for pending_task in pending:
+        pending_task.cancel()
     return done_tasks
 
 

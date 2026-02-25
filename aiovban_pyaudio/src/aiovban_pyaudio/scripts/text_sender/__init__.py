@@ -3,12 +3,11 @@ import asyncio
 import sys
 
 import pyaudio
-from setproctitle import setproctitle
 
 from aiovban import VBANApplicationData, DeviceType
 from aiovban.asyncio import AsyncVBANClient
 from aiovban.enums import Features
-from ..util import get_device_by_name
+from ..util import get_device_by_name, setproctitle
 from ... import VBANAudioPlayer
 
 
@@ -39,11 +38,12 @@ async def run_loop(config):
     full_address, stream_name = config.stream.split("/")
     if ":" in full_address:
         address, port = full_address.split(":")
+        port = int(port)
     else:
         address = full_address
         port = 6980
 
-    device = client.register_device(address, port)
+    device = await client.register_device(address, port)
     stream = await device.text_stream(stream_name)
 
     await stream.send_text(config.command)
@@ -71,6 +71,6 @@ def main():
 
     config = parser.parse_args()
 
-    setproctitle("aioVBAN Stream Receiver")
+    setproctitle("aioVBAN Text Sender")
     setup_logging()
     asyncio.run(run_loop(config))

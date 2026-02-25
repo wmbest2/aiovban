@@ -4,9 +4,21 @@ This document describes how to cut a release for the aiovban project.
 
 ## Prerequisites
 
-1. Ensure you have PyPI credentials configured (API token in GitHub Secrets as `PYPI_API_TOKEN`)
-2. Ensure you have write permissions to the GitHub repository
-3. Make sure all tests pass and the code is ready for release
+1. Ensure you have `uv` installed (see [uv installation](https://docs.astral.sh/uv/getting-started/installation/))
+2. Ensure you have PyPI credentials configured (API token in GitHub Secrets as `PYPI_API_TOKEN`)
+3. Ensure you have write permissions to the GitHub repository
+4. Make sure all tests pass and the code is ready for release
+
+## Quick Reference
+
+This project uses `uv` for Python package management. Common commands:
+
+```bash
+uv sync                    # Install dependencies
+uv run pytest -v           # Run tests with current Python
+uv build --all-packages    # Build all workspace packages (aiovban and aiovban-pyaudio)
+uv publish                 # Publish to PyPI (interactive)
+```
 
 ## Release Process
 
@@ -58,21 +70,15 @@ If you need to publish manually:
 
 ### Build the Package
 ```bash
-python -m pip install --upgrade build twine
-python -m build
-```
-
-### Check the Package
-```bash
-twine check dist/*
+uv build --all-packages
 ```
 
 ### Upload to PyPI
 ```bash
-twine upload dist/*
+uv publish
 ```
 
-You'll be prompted for your PyPI credentials (or use `TWINE_USERNAME` and `TWINE_PASSWORD` environment variables).
+You'll be prompted for your PyPI credentials (or the tool will use trusted publishing if configured).
 
 ## Version Numbering
 
@@ -96,9 +102,7 @@ This project follows [Semantic Versioning](https://semver.org/):
 
 1. Ensure your `PYPI_API_TOKEN` is valid and has upload permissions
 2. Verify the package version doesn't already exist on PyPI (you cannot overwrite existing versions)
-3. Check that the package builds successfully locally with `python -m build`
-
-**Note**: You may see a warning from `twine check` about "unrecognized or malformed field 'license-file'" when using setuptools 77+. This is a temporary compatibility issue between newer setuptools and twine versions and doesn't prevent uploading to PyPI. The package will upload successfully despite this warning.
+3. Check that the package builds successfully locally with `uv build --all-packages`
 
 ## Post-Release
 

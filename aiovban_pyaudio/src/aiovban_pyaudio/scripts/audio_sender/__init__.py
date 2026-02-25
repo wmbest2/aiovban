@@ -4,25 +4,23 @@ import logging
 import sys
 
 import pyaudio
-from setproctitle import setproctitle
 
-from aiovban import VBANApplicationData, DeviceType
+from aiovban import VBANApplicationData, DeviceType, VBANSampleRate
 from aiovban.asyncio import AsyncVBANClient
 from aiovban.enums import Features
-from ..util import get_device_by_name
+from ..util import get_device_by_name, setproctitle
 from ... import VBANAudioSender
 
 logger = logging.getLogger(__name__)
 
 
-def setup_logging():
+def setup_logging(debug=False):
     import logging
 
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
     handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(logging.DEBUG)
-    print("Setting up logging at level INFO")
+    handler.setLevel(logging.DEBUG if debug else logging.INFO)
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
@@ -52,7 +50,7 @@ async def run_loop(config):
 
     input_device = get_device_by_name(pyaudio_instance, config.input_device)
 
-    device = client.register_device(config.address, config.port)
+    device = await client.register_device(config.address, config.port)
     logger.info(f"Registered device {device}")
     stream = await device.send_stream(config.stream_name)
 
@@ -60,6 +58,8 @@ async def run_loop(config):
         stream=stream,
         pyaudio=pyaudio_instance,
         device_index=input_device,
+        channels=config.channels,
+        sample_rate=VBANSampleRate.find(config.sample_rate),
     )
     await listener.listen()
 
@@ -71,7 +71,7 @@ def main():
     )
     parser.add_argument(
         "--debug",
-        action="store_false",
+        action="store_true",
         help="Enable debug logging",
     )
     parser.add_argument(
@@ -94,9 +94,21 @@ def main():
         type=str,
         help="The name of the stream to send",
     )
+    parser.add_argument(
+        "--channels",
+        type=int,
+        default=2,
+        help="Number of channels to use",
+    )
+    parser.add_argument(
+        "--sample-rate",
+        type=int,
+        default=48000,
+        help="Sample rate to use",
+    )
 
     config = parser.parse_args()
 
     setproctitle("aioVBAN Stream Sender")
-    setup_logging()
+    setup_logging(config.debug)
     asyncio.run(run_loop(config))

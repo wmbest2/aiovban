@@ -1,12 +1,13 @@
 name: Publish to PyPI
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*.*.*'
 
 permissions:
-  contents: read
-  id-token: write  # Required for trusted publishing to PyPI
+  contents: write
+  id-token: write
 
 jobs:
   build-and-publish:
@@ -16,24 +17,36 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        enable-cache: true
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
-    
-    - name: Install build dependencies
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install build twine
+
+    - name: Run tests
+      run: uv run pytest
     
     - name: Build package
-      run: python -m build
-    
-    - name: Check package
-      run: twine check dist/*
-    
+      run: uv build --all-packages
+
     - name: Publish to PyPI
-      env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-      run: twine upload dist/*
+      run: uv publish
+
+    - name: Extract version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: Release v${{ steps.get_version.outputs.VERSION }}
+        files: |
+          dist/*.whl
+          dist/*.tar.gz
+        draft: false
+        prerelease: false
+        generate_release_notes: true

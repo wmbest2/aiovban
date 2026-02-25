@@ -3,6 +3,16 @@ from random import SystemRandom
 
 import pyaudio
 
+try:
+    from setproctitle import setproctitle as _setproctitle
+except ImportError:
+    _setproctitle = None
+
+
+def setproctitle(title: str):
+    if _setproctitle:
+        _setproctitle(title)
+
 
 def get_device_by_name(instance: pyaudio.PyAudio, name: str):
     for i in range(instance.get_device_count()):

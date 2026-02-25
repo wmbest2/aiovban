@@ -51,7 +51,9 @@ class VBANListenerProtocol(VBANBaseProtocol):
     def datagram_received(self, data, addr):
         try:
             if self.client.quick_reject(addr[0]):
+                logger.debug(f"Quick rejected packet from {addr[0]}")
                 return
+            logger.debug(f"Received packet from {addr[0]}")
             packet = VBANPacket.unpack(data)
             task = asyncio.create_task(
                 self.client.process_packet(addr[0], addr[1], packet)

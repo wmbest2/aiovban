@@ -10,15 +10,10 @@ Thank you for your interest in contributing to aiovban! This document provides g
    git clone https://github.com/YOUR_USERNAME/aiovban.git
    cd aiovban
    ```
-3. **Create a virtual environment**:
+3. **Create a virtual environment and install dependencies**:
    ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   ```
-4. **Install development dependencies**:
-   ```bash
-   pip install -e .
-   pip install pytest tox
+   uv sync --all-extras
+   source .venv/bin/activate  # On Windows: .venv\\Scripts\\activate
    ```
 
 ## Development Workflow
@@ -40,12 +35,7 @@ Thank you for your interest in contributing to aiovban! This document provides g
 
 4. **Run the test suite**:
    ```bash
-   pytest
-   ```
-
-5. **Run tests across Python versions** (optional but recommended):
-   ```bash
-   tox
+   uv run pytest
    ```
 
 ### Commit Messages

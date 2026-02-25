@@ -50,7 +50,7 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
             allow_broadcast=not self.ignore_audio_streams,
         )
 
-        await proto.done
+        return proto.done
 
     def close(self):
         if self._transport:
@@ -125,6 +125,7 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
         if ip_address in self._registered_devices:
             return self._registered_devices[ip_address]
 
+        logger.info(f"Registering device at {ip_address}:{port}")
         self._registered_devices[ip_address] = VBANDevice(
             address=ip_address,
             default_port=port,

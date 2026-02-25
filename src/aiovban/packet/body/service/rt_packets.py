@@ -142,7 +142,7 @@ class RTPacketBodyType0(PacketBody):
                 buffer_size=struct.unpack("<H", data[2:4])[0],
                 voice_meeter_version=cls.versionFromBytes(data),
                 # optionBits = data[8:12]
-                sample_rate=VBANSampleRate(struct.unpack("<L", data[12:16])[0]),
+                sample_rate=VBANSampleRate.find(struct.unpack("<L", data[12:16])[0]),
                 input_levels=list(struct.unpack("<" + "H" * 34, data[16:84])),
                 output_levels=list(struct.unpack("<" + "H" * 64, data[84:212])),
                 transport_bits=struct.unpack("<L", data[212:216])[0],
@@ -184,7 +184,7 @@ class RTPacketBodyType0(PacketBody):
             + struct.pack("<H", self.buffer_size)
             + version_bytes
             + b"\x00" * 4  # optionBits
-            + struct.pack("<L", self.sample_rate.value)
+            + struct.pack("<L", self.sample_rate.rate)
             + input_levels_bytes
             + output_levels_bytes
             + transport_bits_bytes

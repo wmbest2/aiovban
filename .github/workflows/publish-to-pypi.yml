@@ -37,7 +37,7 @@ jobs:
       run: uv build --all-packages
 
     - name: Publish to PyPI
-      run: uv publish
+      run: uv publish --skip-existing
 
     - name: Extract version from tag
       id: get_version

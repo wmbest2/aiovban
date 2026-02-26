@@ -36,8 +36,11 @@ jobs:
     - name: Build package
       run: uv build --all-packages
 
-    - name: Publish to PyPI
-      run: uv publish --skip-existing
+    - name: Publish aiovban to PyPI
+      run: uv publish --check-url https://pypi.org/simple/aiovban/ dist/aiovban-*
+
+    - name: Publish aiovban-pyaudio to PyPI
+      run: uv publish --check-url https://pypi.org/simple/aiovban-pyaudio dist/aiovban_pyaudio-*
 
     - name: Extract version from tag
       id: get_version

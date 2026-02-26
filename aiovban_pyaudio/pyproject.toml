@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiovban-pyaudio"
-version = "0.1.0"
+version = "0.2.0"
 authors = [
   { name="William Best", email="wmbest2@gmail.com" },
 ]
@@ -35,5 +35,6 @@ Homepage = "https://github.com/wmbest2/aiovban"
 Issues = "https://github.com/wmbest2/aiovban/issues"
 
 [project.scripts]
-aiovban-receiver = "aiovban_pyaudio.scripts:audio_receiver.main"
-aiovban-sender = "aiovban_pyaudio.scripts:audio_sender.main"
+aiovban-receiver = "aiovban_pyaudio.scripts.audio_receiver:main"
+aiovban-sender = "aiovban_pyaudio.scripts.audio_sender:main"
+aiovban-text-sender = "aiovban_pyaudio.scripts.text_sender:main"

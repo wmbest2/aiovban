@@ -28,7 +28,9 @@ def _default_application_data():
 
 @dataclass
 class AsyncVBANClient(asyncio.DatagramProtocol):
-    application_data: VBANApplicationData = field(default_factory=_default_application_data)
+    application_data: VBANApplicationData = field(
+        default_factory=_default_application_data
+    )
     ignore_audio_streams: bool = True
     default_queue_size: int = 200
 
@@ -48,7 +50,7 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
             allow_broadcast=not self.ignore_audio_streams,
         )
 
-        await proto.done
+        return proto.done
 
     def close(self):
         if self._transport:
@@ -89,7 +91,7 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
     async def send_ping(
         self, address, port, type: PingFunctions = PingFunctions.Request
     ):
-        print(f"Sending ping to {address}:{port}")
+        logger.debug(f"Sending ping to {address}:{port}")
         response_body = self.get_ping_response()
         packet = VBANPacket(
             header=VBANServiceHeader(
@@ -104,11 +106,26 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
         await out_stream.connect(address, port)
         await out_stream.send_packet(packet)
 
-    def register_device(self, address: str, port: int = 6980):
-        ip_address = socket.gethostbyname(address)
+    async def register_device(self, address: str, port: int = 6980):
+        # Use async DNS resolution to avoid blocking
+        loop = asyncio.get_running_loop()
+        try:
+            # getaddrinfo returns (family, type, proto, canonname, sockaddr) tuples
+            addrinfo = await loop.getaddrinfo(address, None, family=socket.AF_INET)
+            if not addrinfo:
+                raise ValueError(f"Could not resolve address: {address}")
+            ip_address = addrinfo[0][4][0]  # Extract IP from sockaddr
+        except (socket.gaierror, OSError) as e:
+            raise ValueError(f"Invalid address '{address}': {e}")
+
+        # Validate port range
+        if not (0 <= port <= 65535):
+            raise ValueError(f"Invalid port {port}: must be between 0 and 65535")
+
         if ip_address in self._registered_devices:
             return self._registered_devices[ip_address]
 
+        logger.info(f"Registering device at {ip_address}:{port}")
         self._registered_devices[ip_address] = VBANDevice(
             address=ip_address,
             default_port=port,

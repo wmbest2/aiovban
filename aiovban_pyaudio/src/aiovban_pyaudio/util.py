@@ -5,11 +5,18 @@ import threading
 
 def run_on_background_thread(func):
     def run_loop(loop, future, origin_loop, *args, **kwargs):
-        asyncio.set_event_loop(loop)
-        kwargs["origin_loop"] = origin_loop
-        loop.run_until_complete(func(*args, **kwargs))
-        loop.stop()
-        future.set_result(None)
+        try:
+            asyncio.set_event_loop(loop)
+            kwargs["origin_loop"] = origin_loop
+            loop.run_until_complete(func(*args, **kwargs))
+        except Exception as e:
+            if not future.done():
+                origin_loop.call_soon_threadsafe(future.set_exception, e)
+        finally:
+            loop.stop()
+            loop.close()
+            if not future.done():
+                origin_loop.call_soon_threadsafe(future.set_result, None)
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -40,16 +47,16 @@ class FrameBuffer:
             Initializes the FrameBuffer with a maximum frame count and bytes per frame.
 
         write(data: bytes, frames: int):
-            Asynchronously writes data to the buffer and updates the frame count.
+            Writes data to the buffer and updates the frame count. Thread-safe.
 
         size():
-            Asynchronously returns the current size of the buffer in bytes and the frame count.
+            Returns the current size of the buffer in bytes and the frame count. Thread-safe.
 
         read(num_frames: int):
-            Asynchronously reads a specified number of frames from the buffer, dropping the oldest frames if necessary.
+            Reads a specified number of frames from the buffer, dropping the oldest frames if necessary. Thread-safe.
 
         synchronize(bytes_per_frame: int):
-            Asynchronously resets the buffer and updates the bytes per frame.
+            Resets the buffer and updates the bytes per frame. Thread-safe.
     """
 
     def __init__(self, max_frame_count: int, bytes_per_frame: int = 1):
@@ -64,33 +71,33 @@ class FrameBuffer:
         self._frame_count = 0
         self._max_frame_count = max_frame_count
         self._bytes_per_frame = bytes_per_frame
-        self._mutex = asyncio.Lock()
+        self._mutex = threading.Lock()
 
-    async def write(self, data: bytes, frames: int):
+    def write(self, data: bytes, frames: int):
         """
-        Asynchronously writes data to the buffer and updates the frame count.
+        Writes data to the buffer and updates the frame count.
 
         Args:
             data (bytes): The audio data to write to the buffer.
             frames (int): The number of frames in the data.
         """
-        async with self._mutex:
+        with self._mutex:
             self._buffer += data
             self._frame_count += frames
 
-    async def size(self):
+    def size(self):
         """
-        Asynchronously returns the current size of the buffer in bytes and the frame count.
+        Returns the current size of the buffer in bytes and the frame count.
 
         Returns:
             tuple: A tuple containing the size of the buffer in bytes and the frame count.
         """
-        async with self._mutex:
+        with self._mutex:
             return len(self._buffer), self._frame_count
 
-    async def read(self, num_frames: int, drop_frames=True):
+    def read(self, num_frames: int, drop_frames=True):
         """
-        Asynchronously reads a specified number of frames from the buffer, dropping the oldest frames if necessary.
+        Reads a specified number of frames from the buffer, dropping the oldest frames if necessary.
 
         Args:
             num_frames (int): The number of frames to read from the buffer.
@@ -99,7 +106,7 @@ class FrameBuffer:
         Returns:
             tuple: A tuple containing the read data, the number of frames read, and the number of frames dropped.
         """
-        async with self._mutex:
+        with self._mutex:
             maximum_available_frames = min(num_frames, self._frame_count)
             bytes_for_frames = self._bytes_per_frame * maximum_available_frames
 
@@ -118,14 +125,14 @@ class FrameBuffer:
 
             return buffer_data, maximum_available_frames, excess_frames
 
-    async def synchronize(self, bytes_per_frame: int):
+    def synchronize(self, bytes_per_frame: int):
         """
-        Asynchronously resets the buffer and updates the bytes per frame.
+        Resets the buffer and updates the bytes per frame.
 
         Args:
             bytes_per_frame (int): The new number of bytes per frame.
         """
-        async with self._mutex:
+        with self._mutex:
             self._buffer = b""
             self._frame_count = 0
             self._bytes_per_frame = bytes_per_frame

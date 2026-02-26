@@ -15,20 +15,23 @@ logger = logging.getLogger(__package__)
 @dataclass
 class VBANBaseProtocol(asyncio.DatagramProtocol):
     client: AsyncVBANClient
-
-    def __post_init__(self):
-        self.done: Future = asyncio.get_event_loop().create_future()
+    done: Future = field(default=None, init=False)
 
     def connection_made(self, transport):
-        pass
+        # Create future in async context when protocol is established
+        loop = asyncio.get_running_loop()
+        self.done = loop.create_future()
 
     def datagram_received(self, data, addr):
         pass
 
     def error_received(self, exc):
-        self.done.set_exception(exc)
+        if self.done and not self.done.done():
+            self.done.set_exception(exc)
 
     def connection_lost(self, exc):
+        if not self.done:
+            return
         if self.done.done():
             return
         if exc:
@@ -39,19 +42,29 @@ class VBANBaseProtocol(asyncio.DatagramProtocol):
 
 @dataclass
 class VBANListenerProtocol(VBANBaseProtocol):
-    loop: asyncio.BaseEventLoop = asyncio.get_running_loop()
+    pending_tasks: set = field(default_factory=set, init=False)
 
     def connection_made(self, transport):
+        super().connection_made(transport)
         logger.info(f"Connection made to {transport}")
 
     def datagram_received(self, data, addr):
         try:
             if self.client.quick_reject(addr[0]):
+                logger.debug(f"Quick rejected packet from {addr[0]}")
                 return
+            logger.debug(f"Received packet from {addr[0]}")
             packet = VBANPacket.unpack(data)
-            asyncio.create_task(self.client.process_packet(addr[0], addr[1], packet))
-        except VBANHeaderException as e:
+            task = asyncio.create_task(
+                self.client.process_packet(addr[0], addr[1], packet)
+            )
+            # Track task and add callback to remove it when done
+            self.pending_tasks.add(task)
+            task.add_done_callback(self.pending_tasks.discard)
+        except (VBANHeaderException, ValueError) as e:
             logger.info(f"Error unpacking packet: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error processing packet: {e}")
 
 
 @dataclass
@@ -59,12 +72,16 @@ class VBANSenderProtocol(VBANBaseProtocol):
     _transport: Any = field(default=None, init=False)
 
     def connection_made(self, transport):
+        super().connection_made(transport)
         self._transport = transport
         logger.info(f"Connection made to {transport.get_extra_info('peername')}")
 
     def send_packet(self, data: VBANPacket, addr):
         if self._transport:
-            self._transport.sendto(data.pack(), addr)
+            # If transport is connected, addr MUST be None
+            # Otherwise we get Errno 56 on some platforms (like macOS)
+            is_connected = self._transport.get_extra_info("peername") is not None
+            self._transport.sendto(data.pack(), None if is_connected else addr)
 
     def connection_lost(self, exc):
         self._transport = None

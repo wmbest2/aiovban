@@ -14,10 +14,10 @@ This project aims to create a modern, ergonomic wrapper around the VBAN protocol
 
 ## Installation
 
-To install the package, use pip:
+To install the package, use uv:
 
 ```sh
-pip install aiovban
+uv pip install aiovban
 ```
 
 ## Usage

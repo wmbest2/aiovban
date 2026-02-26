@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import threading
 from asyncio import AbstractEventLoop
 from dataclasses import field, dataclass
 from typing import Any
@@ -31,9 +30,15 @@ class VBANAudioSender:
     pyaudio: Any = field(default_factory=pyaudio.PyAudio, repr=False)
     _stream: Any = field(init=False, repr=False)
     _loop: Any = field(default=None, init=False, repr=False)
+    _running: bool = field(default=False, init=False, repr=False)
+    _sent_packet_count: int = field(default=0, init=False, repr=False)
 
     def __post_init__(self):
         self._stream = self.setup_stream()
+
+    @property
+    def bytes_per_frame(self):
+        return self.channels * self.format.byte_width
 
     def setup_stream(self):
         return self.pyaudio.open(
@@ -42,13 +47,15 @@ class VBANAudioSender:
             rate=self.sample_rate.rate,
             input=True,
             input_device_index=self.device_index,
+            frames_per_buffer=self.framebuffer_size,
         )
 
     def split_bytes_into_chunks(self, data, chunk_size):
         """Splits bytes into chunks of a given size."""
         return [data[i : i + chunk_size] for i in range(0, len(data), chunk_size)]
 
-    async def pack_audio_data(self, audio_data):
+    def pack_audio_data(self, audio_data):
+        samples_per_frame = len(audio_data) // self.bytes_per_frame
         packet = VBANPacket(
             header=VBANAudioHeader(
                 streamname=self.stream.name,
@@ -56,19 +63,21 @@ class VBANAudioSender:
                 codec=Codec.PCM,
                 channels=self.channels,
                 bit_resolution=self.format,
-                samples_per_frame=self.framebuffer_size,
+                samples_per_frame=samples_per_frame,
             ),
             body=BytesBody(audio_data),
         )
         if self._loop:
-            asyncio.create_task(self.stream.send_packet(packet))
+            asyncio.run_coroutine_threadsafe(self.stream.send_packet(packet), self._loop)
+            self._sent_packet_count += 1
+            if self._sent_packet_count % 100 == 0:
+                logger.debug(f"Sent {self._sent_packet_count} packets")
 
-    async def send_all_audio_data(self, audio_data):
-        chunks = self.split_bytes_into_chunks(
-            audio_data, len(audio_data) // self.sample_buffer_size
-        )
+    def send_all_audio_data(self, audio_data):
+        chunk_size = self.framebuffer_size * self.bytes_per_frame
+        chunks = self.split_bytes_into_chunks(audio_data, chunk_size)
         for chunk in chunks:
-            await self.pack_audio_data(chunk)
+            self.pack_audio_data(chunk)
 
     def read_stream(self, amount):
         return self._stream.read(amount, exception_on_overflow=False)
@@ -76,19 +85,22 @@ class VBANAudioSender:
     @run_on_background_thread
     async def listen(self, origin_loop: AbstractEventLoop):
         self._loop = origin_loop
+        self._running = True
         self._stream.start_stream()
 
         try:
-            while True:
+            while self._running:
                 audio_data = self.read_stream(
                     self.framebuffer_size * self.sample_buffer_size
                 )
-                asyncio.run_coroutine_threadsafe(
-                    self.send_all_audio_data(audio_data), origin_loop
-                ).result()
-        except asyncio.CancelledError as _:
+                self.send_all_audio_data(audio_data)
+        except Exception as e:
+            logger.error(f"Error in audio sender: {e}")
+        finally:
             self.stop()
 
     def stop(self):
-        self._stream.stop_stream()
+        self._running = False
+        if self._stream.is_active():
+            self._stream.stop_stream()
         self._stream.close()

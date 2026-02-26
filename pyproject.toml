@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=77.0.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.10.0,<0.11.0"]
+build-backend = "uv_build"
 
 [project]
 name = "aiovban"
-version = "0.7.0"
+version = "0.8.0"
 authors = [
   { name="William Best", email="wmbest2@gmail.com" },
 ]
@@ -32,17 +32,15 @@ Changelog = "https://github.com/wmbest2/aiovban/releases"
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
-    "tox>=4.0",
-    "build>=1.0",
-    "twine>=6.0",
+    "aiovban-pyaudio[cli]",
 ]
 
+[tool.uv]
+managed = true
 
-[tool.tox]
-requires = ["tox>=4.19"]
-env_list = ["3.13", "3.12", "3.11", "3.10"]
+[tool.uv.workspace]
+members = ["aiovban_pyaudio"]
 
-[tool.tox.env_run_base]
-description = "Run test under {base_python}"
-deps = ["pytest"]
-commands = [["pytest"]]
+[tool.uv.sources]
+aiovban = { workspace = true }
+aiovban-pyaudio = { workspace = true }

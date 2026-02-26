@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "aiovban"
-version = "0.7.1"
+version = "0.8.0"
 authors = [
   { name="William Best", email="wmbest2@gmail.com" },
 ]

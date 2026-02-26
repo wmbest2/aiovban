@@ -8,7 +8,7 @@ from aiovban import VBANApplicationData, DeviceType
 from aiovban.asyncio import AsyncVBANClient
 from aiovban.enums import Features
 from ..util import get_device_by_name, setproctitle
-from ... import VBANAudioPlayer
+from ... import VBANAudioPlayer, __version__
 
 
 def setup_logging():
@@ -31,7 +31,7 @@ async def run_loop(config):
         application_name="VBAN Audio Sender",
         features=Features.Audio | Features.Text,
         device_type=DeviceType.Receptor,
-        version="0.2.1",
+        version=__version__,
     )
     client = AsyncVBANClient(application_data=application_data)
 
@@ -53,6 +53,9 @@ def main():
     parser = argparse.ArgumentParser(
         prog="aioVBAN Text Sender",
         description="Receives Audio Streams from VBAN and plays them back",
+    )
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}"
     )
     parser.add_argument(
         "--debug",

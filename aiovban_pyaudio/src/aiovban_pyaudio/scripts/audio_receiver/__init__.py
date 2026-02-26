@@ -9,7 +9,7 @@ from aiovban.asyncio import AsyncVBANClient
 from aiovban.enums import Features
 from aiovban.asyncio.util import BackPressureStrategy
 from ..util import get_device_by_name, setproctitle
-from ... import VBANAudioPlayer
+from ... import VBANAudioPlayer, __version__
 
 
 def setup_logging(debug=False):
@@ -42,7 +42,7 @@ async def run_loop(config):
         application_name="VBAN Audio Receiver",
         features=Features.Audio | Features.Text,
         device_type=DeviceType.Receptor,
-        version="0.2.1",
+        version=__version__,
     )
     client = AsyncVBANClient(
         ignore_audio_streams=False, application_data=application_data
@@ -84,6 +84,9 @@ def main():
     parser = argparse.ArgumentParser(
         prog="aioVBAN Stream Receiver",
         description="Receives Audio Streams from VBAN and plays them back",
+    )
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}"
     )
     parser.add_argument(
         "--debug",

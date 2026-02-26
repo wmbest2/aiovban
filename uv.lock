@@ -10,7 +10,7 @@ members = [
 
 [[package]]
 name = "aiovban"
-version = "0.7.1"
+version = "0.8.0"
 source = { editable = "." }
 
 [package.optional-dependencies]
@@ -28,7 +28,7 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "aiovban-pyaudio"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "aiovban_pyaudio" }
 dependencies = [
     { name = "aiovban" },

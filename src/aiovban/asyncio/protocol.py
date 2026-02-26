@@ -72,12 +72,16 @@ class VBANSenderProtocol(VBANBaseProtocol):
     _transport: Any = field(default=None, init=False)
 
     def connection_made(self, transport):
+        super().connection_made(transport)
         self._transport = transport
         logger.info(f"Connection made to {transport.get_extra_info('peername')}")
 
     def send_packet(self, data: VBANPacket, addr):
         if self._transport:
-            self._transport.sendto(data.pack(), addr)
+            # If transport is connected, addr MUST be None
+            # Otherwise we get Errno 56 on some platforms (like macOS)
+            is_connected = self._transport.get_extra_info("peername") is not None
+            self._transport.sendto(data.pack(), None if is_connected else addr)
 
     def connection_lost(self, exc):
         self._transport = None

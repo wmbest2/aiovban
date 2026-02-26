@@ -28,22 +28,11 @@ def setup_logging(debug=False):
     root.addHandler(handler)
 
 
-async def wait_for_first_done(*tasks):
-    # Wrap coroutines in tasks, as asyncio.wait() requires tasks/futures since Python 3.11
-    wrapped = [asyncio.ensure_future(t) for t in tasks]
-    (done_tasks, pending) = await asyncio.wait(
-        wrapped, return_when=asyncio.FIRST_COMPLETED
-    )
-    for pending_task in pending:
-        pending_task.cancel()
-    return done_tasks
-
-
 async def run_loop(config):
     application_data = VBANApplicationData(
         application_name="VBAN Audio Sender",
         features=Features.Audio | Features.Text,
-        device_type=DeviceType.Receptor,
+        device_type=DeviceType.Transmitter,
         version="0.2.1",
     )
     client = AsyncVBANClient(application_data=application_data)
@@ -56,12 +45,18 @@ async def run_loop(config):
     logger.info(f"Registered device {device}")
     stream = await device.send_stream(config.stream_name)
 
+    sample_rate = VBANSampleRate.find(config.sample_rate)
+    if not sample_rate:
+        logger.error(f"Invalid sample rate: {config.sample_rate}")
+        return
+
     listener = VBANAudioSender(
         stream=stream,
         pyaudio=pyaudio_instance,
         device_index=input_device,
         channels=config.channels,
         sample_rate=VBANSampleRate.find(config.sample_rate),
+        framebuffer_size=config.framebuffer_size,
     )
     await listener.listen()
 
@@ -69,7 +64,7 @@ async def run_loop(config):
 def main():
     parser = argparse.ArgumentParser(
         prog="aioVBAN Stream Sender",
-        description="Receives Audio Streams from VBAN and plays them back",
+        description="Captures audio from an input device and sends it via VBAN",
     )
     parser.add_argument(
         "--debug",
@@ -89,7 +84,7 @@ def main():
     parser.add_argument(
         "--input-device",
         type=str,
-        help="The name of the output device to use",
+        help="The name of the input device to use",
     )
     parser.add_argument(
         "--stream-name",
@@ -107,6 +102,12 @@ def main():
         type=int,
         default=48000,
         help="Sample rate to use",
+    )
+    parser.add_argument(
+        "--framebuffer-size",
+        type=int,
+        default=256,
+        help="Number of frames per VBAN packet",
     )
 
     config = parser.parse_args()

@@ -8,6 +8,7 @@ from typing import Any
 
 from .device import VBANDevice
 from .streams import VBANOutgoingStream
+from .voicemeeter import VoicemeeterRemote
 from .. import VBANApplicationData
 from ..packet import ServiceType, VBANPacket
 from ..packet.body.service import DeviceType, Features

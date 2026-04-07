@@ -11,7 +11,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Footer, Header, Label, RichLog, Static, Input, Button
 
 from aiovban import VBANApplicationData, DeviceType
-from aiovban.asyncio import AsyncVBANClient, VBANDevice
+from aiovban.asyncio import AsyncVBANClient, VBANDevice, VoicemeeterRemote
 from aiovban.enums import Features, State, VBANBaudRate
 from aiovban.packet import VBANPacket
 from aiovban.packet.body import Utf8StringBody
@@ -266,15 +266,14 @@ class VBANTUIApp(App):
         self.register_targets = register
         self.command_stream_name = command_stream
         self._client: AsyncVBANClient = None
-        self._devices: List[VBANDevice] = []
-        self._cmd_framecount = 0
+        self._remote: Optional[VoicemeeterRemote] = None
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Static("--- INPUT STRIPS ---", classes="section-header")
+        yield Static("--- INPUT STRIPS (Click title to rename) ---", classes="section-header")
         with HorizontalScroll(id="strips-scroll"):
             for i in range(8): yield StripWidget(i, kind="strip", classes="strip")
-        yield Static("--- OUTPUT BUSES ---", classes="section-header")
+        yield Static("--- OUTPUT BUSES (Click title to rename) ---", classes="section-header")
         with HorizontalScroll(id="buses-scroll"):
             for i in range(8): yield StripWidget(i, kind="bus", classes="bus")
         yield RichLog(id="debug-log", classes="-hidden", max_lines=100, markup=True)
@@ -297,57 +296,58 @@ class VBANTUIApp(App):
             h, *p = target.split(":"); port = int(p[0]) if p else 6980
             device = await self._client.register_device(h, port)
             await device.rt_stream(update_interval=0xFF)
-            self._devices.append(device)
-            self._debug(f"Registered RT updates from {h}:{port}")
+            self._remote = VoicemeeterRemote(device, self.command_stream_name)
+            self._debug(f"Registered device and VM remote for {h}:{port}")
         while True: await asyncio.sleep(2)
 
     def action_toggle_debug(self) -> None: self.query_one("#debug-log", RichLog).toggle_class("-hidden")
     def _debug(self, msg: str) -> None: self.query_one("#debug-log", RichLog).write(msg)
 
-    def _send_command(self, cmd: str) -> None:
-        self._debug(f"PRE-SEND: {cmd}")
-        if not self._devices:
-            self._debug("ERROR: No devices registered")
-            return
-        device = self._devices[0]
-        header = VBANTextHeader(baud=VBANBaudRate.RATE_256000, streamname=self.command_stream_name, stream_type=VBANTextStreamType.UTF_8)
-        self._cmd_framecount += 1
-        header.framecount = self._cmd_framecount
-        packet = VBANPacket(header, Utf8StringBody(cmd))
-        self._client.send_datagram(packet.pack(), (device.address, device.default_port))
-        self._debug(f"DISPATCHED to {device.address}:{device.default_port}: {cmd}")
-
     def on_gain_changed(self, message: GainChanged) -> None:
-        target = "Strip" if message.kind == "strip" else "Bus"
-        self._send_command(f"{target}[{message.index}].Gain = {message.value:.1f};")
+        if not self._remote: return
+        obj = self._remote.strips[message.index] if message.kind == "strip" else self._remote.buses[message.index]
+        asyncio.create_task(obj.set_gain(message.value))
+        self._debug(f"SET GAIN: {obj.identifier}={message.value:.1f}")
 
     def on_toggle_request(self, message: ToggleRequest) -> None:
-        target = "Strip" if message.kind == "strip" else "Bus"
-        self._send_command(f"{target}[{message.index}].{message.target} = {0 if message.current_state else 1};")
+        if not self._remote: return
+        obj = self._remote.strips[message.index] if message.kind == "strip" else self._remote.buses[message.index]
+        new_val = not message.current_state
+        if message.target == "Mute":
+            asyncio.create_task(obj.set_mute(new_val))
+        elif message.target == "Solo" and message.kind == "strip":
+            asyncio.create_task(obj.set_solo(new_val))
+        elif message.kind == "strip": # Routing button
+            asyncio.create_task(obj.set_bus_routing(message.target, new_val))
+        self._debug(f"TOGGLE: {obj.identifier}.{message.target}={new_val}")
 
     @work
     async def on_rename_requested(self, message: RenameRequested) -> None:
-        if message.kind == "enrich": return
-        self._debug(f"Opening rename modal for {message.kind}[{message.index}]")
+        if message.kind == "enrich" or not self._remote: return
         new_name = await self.push_screen_wait(RenameModal(message.current_name))
         if new_name is not None:
-            target = "Strip" if message.kind == "strip" else "Bus"
-            cmd = f'{target}[{message.index}].Label = "{new_name}";'
-            self._debug(f"Renaming to: {cmd}")
-            self._send_command(cmd)
+            obj = self._remote.strips[message.index] if message.kind == "strip" else self._remote.buses[message.index]
+            await obj.set_label(new_name)
+            self._debug(f"RENAME: {obj.identifier}={new_name}")
 
     def _on_rt_update(self, body: RTPacketBodyType0) -> None:
-        self.sub_title = f"Raw packets: {self._client.raw_packets_received}"
+        self.sub_title = f"Raw: {self._client.raw_packets_received}"
+        if self._remote:
+            self._remote.apply_rt_packet(body)
+        
         strips = self.query(StripWidget).filter(".strip")
         buses = self.query(StripWidget).filter(".bus")
-        for i, strip in enumerate(body.strips):
-            if i < len(strips):
+        
+        for i, strip_data in enumerate(body.strips):
+            if i < len(strips) and self._remote:
                 if i < 5: raw = body.input_levels[i * 2 : (i + 1) * 2]
                 else: raw = body.input_levels[10 + (i - 5) * 8 : 10 + (i - 4) * 8]
-                strips[i].update(strip.label, [v / 65535.0 for v in raw], strip.state, strip.layers[0] / 100.0)
-        for i, bus in enumerate(body.buses):
-            if i < len(buses):
-                buses[i].update(bus.label, [v / 65535.0 for v in body.output_levels[i * 8 : (i + 1) * 8]], bus.state, bus.gain / 100.0)
+                s = self._remote.strips[i]
+                strips[i].update(s.label, [v / 65535.0 for v in raw], strip_data.state, s.gain)
+        for i, bus_data in enumerate(body.buses):
+            if i < len(buses) and self._remote:
+                b = self._remote.buses[i]
+                buses[i].update(b.label, [v / 65535.0 for v in body.output_levels[i * 8 : (i + 1) * 8]], bus_data.state, b.gain)
 
     async def on_unmount(self) -> None:
         if self._client: self._client.close()

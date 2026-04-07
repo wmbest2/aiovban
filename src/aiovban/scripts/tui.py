@@ -49,7 +49,6 @@ class MixerButtonPressed(Message):
 # --- Separator ---
 
 class VerticalSeparator(Static):
-    """A vertical block separator to distinguish device groups."""
     DEFAULT_CSS = f"""
     VerticalSeparator {{
         width: 2; height: 100%; content-align: center middle;
@@ -249,35 +248,33 @@ class VBANTUIApp(App):
         asyncio.create_task(self._run_vban())
 
     def _update_status(self) -> None:
-        """Periodic status check to update the sub-title even if no packets are arriving."""
         if not self._remote:
             self.sub_title = "INITIALIZING..."
             return
-        
         status = "[ONLINE]" if self._remote.online else "[OFFLINE]"
-        if self._remote.type:
-            self.sub_title = f"{self._remote.type.name} {self._remote.version} {status}"
-        else:
-            self.sub_title = f"VBAN DEVICE {status}"
+        if self._remote.type: self.sub_title = f"{self._remote.type.name} {self._remote.version} {status}"
+        else: self.sub_title = f"VBAN DEVICE {status}"
 
     async def _run_vban(self) -> None:
         self._client = AsyncVBANClient(ignore_audio_streams=True, application_data=VBANApplicationData(application_name="VBAN TUI", features=Features.Audio | Features.Text, device_type=DeviceType.Receptor, version="0.1.0"))
         self._client.quick_reject = lambda addr: False
-        _original = self._client.process_packet
-        async def _hooked(address, port, packet: VBANPacket):
-            if isinstance(packet.body, RTPacketBodyType0): self._on_rt_update(packet.body)
-            await _original(address, port, packet)
-        self._client.process_packet = _hooked
+        
+        # We NO LONGER hook process_packet here because we use the Remote's callback
         await self._client.listen(self.vban_host, self.vban_port)
         for target in self.register_targets:
             h, *p = target.split(":"); port = int(p[0]) if p else 6980
             device = await self._client.register_device(h, port)
-            await device.rt_stream(update_interval=0xFF)
             self._remote = VoicemeeterRemote(device, self.command_stream_name)
+            self._remote.add_callback(self._on_remote_update)
+            await self._remote.start()
         while True: await asyncio.sleep(2)
 
-    def action_toggle_debug(self) -> None: self.query_one("#debug-log", RichLog).toggle_class("-hidden")
-    def _debug(self, msg: str) -> None: self.query_one("#debug-log", RichLog).write(msg)
+    def _on_remote_update(self, remote: VoicemeeterRemote) -> None:
+        """Callback from VoicemeeterRemote when new state arrives."""
+        # This is called frequently, so we just trigger a UI update
+        # In Textual, we can call self.refresh() or just let the update logic handle it
+        # Actually, we need the original body to get VU levels, or we update remote to store levels too
+        pass
 
     def on_mixer_button_pressed(self, event: MixerButtonPressed) -> None:
         if event.button.id == "global-restart" and self._remote: asyncio.create_task(self._remote.restart())
@@ -301,22 +298,21 @@ class VBANTUIApp(App):
             if new_name is not None: await (self._remote.strips[message.index] if message.kind == "strip" else self._remote.buses[message.index]).set_label(new_name)
 
     def _on_rt_update(self, body: RTPacketBodyType0) -> None:
+        # We still need the raw body here because the TUI shows VU levels which aren't yet in the Remote abstraction
         if self._remote: self._remote.apply_rt_packet(body)
+        
         st_widgets = self.query(StripWidget).filter(".strip")
         bus_widgets = self.query(StripWidget).filter(".bus")
         v_type = body.voice_meeter_type
         
-        # Sizing and grouping logic
         phys_in = 2 if v_type == VoicemeeterType.VOICEMEETER else 3 if v_type == VoicemeeterType.BANANA else 5
         phys_out = 2 if v_type == VoicemeeterType.VOICEMEETER else 3 if v_type == VoicemeeterType.BANANA else 5
         
-        # Update separators
         for k, v in [("strip", phys_in), ("bus", phys_out)]:
             for idx in [2, 3, 5]:
                 q = self.query(f"#sep-{k}-{idx}")
                 if q: q.first().set_class(idx != v, "-hidden")
 
-        # Update active widgets only
         active_strips = self._remote.strips
         for i, w in enumerate(st_widgets):
             is_active = i < len(active_strips)
@@ -336,6 +332,7 @@ class VBANTUIApp(App):
                 w.update(b.label, [v/65535.0 for v in body.output_levels[i*8:(i+1)*8]], body.buses[i].state, b.gain, b.is_virtual)
 
     async def on_unmount(self) -> None:
+        if self._remote: await self._remote.stop()
         if self._client: self._client.close()
 
 def main():

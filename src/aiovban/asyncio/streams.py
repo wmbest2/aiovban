@@ -177,3 +177,17 @@ class VBANRTStream(VBANOutgoingStream, VBANIncomingStream):
         await super().connect(address, port, loop)
         if self.automatic_renewal:
             self.renewal_task = asyncio.create_task(self.renew_updates())
+
+    async def close(self):
+        """Stop the renewal task and clear any pending timers."""
+        if self.renewal_task:
+            self.renewal_task.cancel()
+            try:
+                await self.renewal_task
+            except asyncio.CancelledError:
+                pass
+            self.renewal_task = None
+        
+        for timer in list(self.pending_timers):
+            timer.cancel()
+        self.pending_timers.clear()

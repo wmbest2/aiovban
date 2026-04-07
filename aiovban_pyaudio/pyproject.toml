@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiovban-pyaudio"
-version = "0.2.0"
+version = "0.2.1"
 authors = [
   { name="William Best", email="wmbest2@gmail.com" },
 ]
@@ -12,7 +12,7 @@ description = "A PyAudio wrapper for aiovban"
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -23,7 +23,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "aiovban",
+    "aiovban==1.0.1",
     "pyaudio"
 ]
 

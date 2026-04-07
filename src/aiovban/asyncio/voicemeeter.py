@@ -1,6 +1,6 @@
 import logging
+import asyncio
 import time
-from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Dict
 
 from .device import VBANDevice
@@ -82,6 +82,7 @@ class VoicemeeterRemote:
         
         self._cmd_framecount = 0
         self._callbacks: List[Callable[['VoicemeeterRemote'], None]] = []
+        self._worker_task: Optional[asyncio.Task] = None
 
     @property
     def online(self) -> bool:
@@ -95,10 +96,6 @@ class VoicemeeterRemote:
         """Get the list of active input strips for the discovered type."""
         if not self.type:
             return []
-        
-        # VOICEMEETER (1): 2 phys, 1 virt.
-        # BANANA (2): 3 phys, 2 virt. 
-        # POTATO (3): 5 phys, 3 virt.
         phys = 2 if self.type == VoicemeeterType.VOICEMEETER else 3 if self.type == VoicemeeterType.BANANA else 5
         virt = 1 if self.type == VoicemeeterType.VOICEMEETER else 2 if self.type == VoicemeeterType.BANANA else 3
         return self._all_strips[:phys + virt]
@@ -108,11 +105,50 @@ class VoicemeeterRemote:
         """Get the list of active output buses for the discovered type."""
         if not self.type:
             return []
-        
-        # Basic: 2 phys. Banana: 3 phys, 2 virt. Potato: 5 phys, 3 virt.
         phys = 2 if self.type == VoicemeeterType.VOICEMEETER else 3 if self.type == VoicemeeterType.BANANA else 5
         virt = 0 if self.type == VoicemeeterType.VOICEMEETER else 2 if self.type == VoicemeeterType.BANANA else 3
         return self._all_buses[:phys + virt]
+
+    async def start(self):
+        """Start the background worker to drain RT packets."""
+        if self._worker_task:
+            return
+        
+        # Ensure we have an RT stream registered
+        rt_stream = self.device._streams.get("Voicemeeter-RTP")
+        if not rt_stream:
+            # Try to register a default one if not present
+            rt_stream = await self.device.rt_stream(update_interval=0xFF)
+            
+        self._worker_task = asyncio.create_task(self._worker(rt_stream))
+        logger.info(f"VoicemeeterRemote worker started for {self.device.address}")
+
+    async def stop(self):
+        """Stop the background worker and close the RT stream."""
+        if self._worker_task:
+            self._worker_task.cancel()
+            try:
+                await self._worker_task
+            except asyncio.CancelledError:
+                pass
+            self._worker_task = None
+            
+        rt_stream = self.device._streams.get("Voicemeeter-RTP")
+        if rt_stream and hasattr(rt_stream, "close"):
+            await rt_stream.close()
+
+    async def _worker(self, stream):
+        """Background loop to consume RT packets."""
+        while True:
+            try:
+                packet = await stream.get_packet()
+                if isinstance(packet.body, RTPacketBodyType0):
+                    self.apply_rt_packet(packet.body)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in VoicemeeterRemote worker: {e}")
+                await asyncio.sleep(1)
 
     def add_callback(self, callback: Callable[['VoicemeeterRemote'], None]):
         """Add a callback to be notified when state updates arrive."""
@@ -142,9 +178,7 @@ class VoicemeeterRemote:
         )
         self._cmd_framecount += 1
         header.framecount = self._cmd_framecount
-        packet = VBANPacket(header, Utf8StringBody(cmd))
-        
-        # Send via the client's listening socket
+        packet = VBANPacket(header, Utf8StringBody(cmd + "\0"))
         self.device._client.send_datagram(packet.pack(), (self.device.address, self.device.default_port))
         logger.debug(f"Voicemeeter command sent: {cmd}")
 

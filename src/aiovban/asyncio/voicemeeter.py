@@ -1,9 +1,10 @@
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Dict
 
 from .device import VBANDevice
-from ..enums import State, VBANBaudRate
+from ..enums import State, VBANBaudRate, VoicemeeterType
 from ..packet import VBANPacket
 from ..packet.body import Utf8StringBody
 from ..packet.body.service.rt_packets import RTPacketBodyType0
@@ -18,6 +19,7 @@ class VoicemeeterBase:
     label: str = ""
     gain: float = 0.0
     mute: bool = False
+    is_virtual: bool = False
 
     @property
     def identifier(self) -> str:
@@ -65,13 +67,52 @@ class VoicemeeterBus(VoicemeeterBase):
 class VoicemeeterRemote:
     """High-level abstraction for controlling VoiceMeeter via VBAN."""
 
-    def __init__(self, device: VBANDevice, command_stream: str = "Command1"):
+    def __init__(self, device: VBANDevice, command_stream: str = "Command1", offline_timeout: float = 5.0):
         self.device = device
         self.command_stream_name = command_stream
-        self.strips = [VoicemeeterStrip(i, self) for i in range(8)]
-        self.buses = [VoicemeeterBus(i, self) for i in range(8)]
+        self.offline_timeout = offline_timeout
+        
+        # Internal storage for all possible 8 strips/buses
+        self._all_strips = [VoicemeeterStrip(i, self) for i in range(8)]
+        self._all_buses = [VoicemeeterBus(i, self) for i in range(8)]
+        
+        self.type: Optional[VoicemeeterType] = None
+        self.version: str = "Unknown"
+        self.last_update: float = 0
+        
         self._cmd_framecount = 0
         self._callbacks: List[Callable[['VoicemeeterRemote'], None]] = []
+
+    @property
+    def online(self) -> bool:
+        """Check if we have received an RT packet recently."""
+        if self.last_update == 0:
+            return False
+        return (time.time() - self.last_update) < self.offline_timeout
+
+    @property
+    def strips(self) -> List[VoicemeeterStrip]:
+        """Get the list of active input strips for the discovered type."""
+        if not self.type:
+            return []
+        
+        # VOICEMEETER (1): 2 phys, 1 virt.
+        # BANANA (2): 3 phys, 2 virt. 
+        # POTATO (3): 5 phys, 3 virt.
+        phys = 2 if self.type == VoicemeeterType.VOICEMEETER else 3 if self.type == VoicemeeterType.BANANA else 5
+        virt = 1 if self.type == VoicemeeterType.VOICEMEETER else 2 if self.type == VoicemeeterType.BANANA else 3
+        return self._all_strips[:phys + virt]
+
+    @property
+    def buses(self) -> List[VoicemeeterBus]:
+        """Get the list of active output buses for the discovered type."""
+        if not self.type:
+            return []
+        
+        # Basic: 2 phys. Banana: 3 phys, 2 virt. Potato: 5 phys, 3 virt.
+        phys = 2 if self.type == VoicemeeterType.VOICEMEETER else 3 if self.type == VoicemeeterType.BANANA else 5
+        virt = 0 if self.type == VoicemeeterType.VOICEMEETER else 2 if self.type == VoicemeeterType.BANANA else 3
+        return self._all_buses[:phys + virt]
 
     def add_callback(self, callback: Callable[['VoicemeeterRemote'], None]):
         """Add a callback to be notified when state updates arrive."""
@@ -101,24 +142,29 @@ class VoicemeeterRemote:
         )
         self._cmd_framecount += 1
         header.framecount = self._cmd_framecount
+        packet = VBANPacket(header, Utf8StringBody(cmd))
         
-        # VoiceMeeter likes a null terminator for commands
-        full_cmd = cmd + "\0"
-        packet = VBANPacket(header, Utf8StringBody(full_cmd))
-        
-        # Send via the client's listening socket so source port is 6980
+        # Send via the client's listening socket
         self.device._client.send_datagram(packet.pack(), (self.device.address, self.device.default_port))
         logger.debug(f"Voicemeeter command sent: {cmd}")
 
     def apply_rt_packet(self, body: RTPacketBodyType0):
         """Update internal state from an RT packet and notify callbacks."""
+        self.type = body.voice_meeter_type
+        self.version = body.voice_meeter_version
+        self.last_update = time.time()
+        
+        phys_in = 2 if self.type == VoicemeeterType.VOICEMEETER else 3 if self.type == VoicemeeterType.BANANA else 5
+        phys_out = 2 if self.type == VoicemeeterType.VOICEMEETER else 3 if self.type == VoicemeeterType.BANANA else 5
+
         for i, strip_data in enumerate(body.strips):
-            if i < len(self.strips):
-                strip = self.strips[i]
+            if i < len(self._all_strips):
+                strip = self._all_strips[i]
                 strip.label = strip_data.label
                 strip.mute = bool(strip_data.state & State.MODE_MUTE)
                 strip.solo = bool(strip_data.state & State.MODE_SOLO)
                 strip.gain = strip_data.layers[0] / 100.0
+                strip.is_virtual = (i >= phys_in)
                 strip.a1 = bool(strip_data.state & State.MODE_BUSA1)
                 strip.a2 = bool(strip_data.state & State.MODE_BUSA2)
                 strip.a3 = bool(strip_data.state & State.MODE_BUSA3)
@@ -127,11 +173,12 @@ class VoicemeeterRemote:
                 strip.b3 = bool(strip_data.state & State.MODE_BUSB3)
 
         for i, bus_data in enumerate(body.buses):
-            if i < len(self.buses):
-                bus = self.buses[i]
+            if i < len(self._all_buses):
+                bus = self._all_buses[i]
                 bus.label = bus_data.label
                 bus.mute = bool(bus_data.state & State.MODE_MUTE)
                 bus.gain = bus_data.gain / 100.0
+                bus.is_virtual = (i >= phys_out)
 
         for callback in self._callbacks:
             try:

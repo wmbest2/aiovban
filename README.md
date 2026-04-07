@@ -1,84 +1,116 @@
-# VBAN Protocol Wrapper
+# aiovban
 
-[![Currently Under Development - WIP](https://img.shields.io/badge/Currently_Under_Development-WIP-yellow)](https://)
+An ergonomic, asyncio-first Python wrapper around the VBAN protocol.
+
+[![PyPI version](https://img.shields.io/pypi/v/aiovban.svg)](https://pypi.org/project/aiovban/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Overview
 
-This project aims to create a modern, ergonomic wrapper around the VBAN protocol. By leveraging modern Python tools such as dataclasses and asyncio, this wrapper provides a simple and efficient interface for working with VBAN.
+`aiovban` provides a modern interface for interacting with the VBAN protocol, commonly used with VoiceMeeter. It leverages Python's `asyncio` for high-performance, non-blocking I/O and `dataclasses` for clean, typed data structures.
 
 ## Features
 
-- **Dataclasses**: Utilizes Python's dataclasses for clean, concise and ergonomic data structures.
-- **Asyncio**: Supports asynchronous operations for non-blocking I/O.
-- **Ease of Use**: Designed to be simple and intuitive, making it easy to integrate VBAN into your projects.
+- **Full Protocol Support**: VBAN Audio, Text (Command), Service (Ping/RT), and Serial.
+- **Asyncio Native**: Built from the ground up for asynchronous applications.
+- **VoiceMeeter Abstraction**: High-level `VoicemeeterRemote` API for intuitive control of strips, buses, and engine commands.
+- **Interactive TUI**: Includes `aiovban-tui`, a full-featured terminal mixer for remote VoiceMeeter control.
+- **Type Safety**: Extensively typed using Python dataclasses and enums.
 
 ## Installation
 
-To install the package, use uv:
-
 ```sh
-uv pip install aiovban
+pip install aiovban
 ```
 
 ## Usage
 
-### Basic Example
+### High-Level VoiceMeeter Control (Recommended)
 
-Here's a basic example of how to use the VBAN wrapper:
-
-```python
-from aiovban import VBANAudioHeader, VBANPacket
-from aiovban import VBANSampleRate
-
-# Create a VBAN audio header
-audio_header = VBANAudioHeader(sample_rate=VBANSampleRate.RATE_44100, channels=17, samples_per_frame=3,
-                               bit_resolution=3, codec=0xf0, streamname="Channel1")
-
-# Create a VBAN packet
-packet = VBANPacket(header=audio_header)
-
-# Access properties
-print(packet.header.sample_rate)  # Output: 44100
-print(packet.header.samples_per_frame)  # Output: 3
-```
-
-### Asynchronous Example
-
-Using asyncio for non-blocking operations:
+The `VoicemeeterRemote` class provides the easiest way to control a remote VoiceMeeter instance.
 
 ```python
-client = AsyncVBANClient(ignore_audio_streams=False)
-asyncio.create_task(client.listen('0.0.0.0', 6980)) # Listen for all incoming packets
+import asyncio
+from aiovban.asyncio import AsyncVBANClient, VoicemeeterRemote
 
-windows_host = client.register_device('bill.local', 6980)
-windows_mic_out = windows_host.receive_stream('Windows Mic Out')
+async def main():
+    client = AsyncVBANClient()
+    await client.listen("0.0.0.0", 6980)
 
+    # Register a remote VoiceMeeter device
+    device = await client.register_device("192.168.1.50")
+    
+    # Initialize the high-level remote
+    vm = VoicemeeterRemote(device)
 
-command_stream = await windows_host.text_stream('Command1')
-await command_stream.send_text('Strip[0].Gain = 0.5;')
-await asyncio.sleep(1)
-await command_stream.send_text('Command.Restart = 1;')
+    # Toggle mute on the first strip
+    await vm.strips[0].set_mute(True)
+    
+    # Set gain on the first bus
+    await vm.buses[0].set_gain(-10.5)
+    
+    # Restart the audio engine
+    await vm.restart()
 
-# DRAIN_OLDEST will dump half the queue when it becomes full
-rt_stream = await windows_host.rt_stream(30, back_pressure_strategy=BackPressureStrategy.DRAIN_OLDEST)
-print(await rt_stream.get_packet())
-
-
-receiver = VBANAudioPlayer(stream=windows_mic_out)
+asyncio.run(main())
 ```
 
-## Contributing
+### Low-Level Protocol Usage
 
-Contributions are welcome! Please see our [Contributing Guide](CONTRIBUTING.md) for details on how to get started, our development workflow, and coding standards.
+For applications requiring direct stream access, you can interact with the client and streams directly.
+
+#### Sending Commands via Text Streams
+```python
+# Create a text stream for outgoing commands
+command_stream = await device.text_stream('Command1')
+await command_stream.send_text('Strip[0].Mute = 1;')
+```
+
+#### Receiving RT Packets (Real-time State)
+```python
+from aiovban.asyncio.util import BackPressureStrategy
+
+# Subscribe to RT updates (30 times per second)
+rt_stream = await device.rt_stream(30, back_pressure_strategy=BackPressureStrategy.DRAIN_OLDEST)
+
+# Get the next incoming packet
+packet = await rt_stream.get_packet()
+print(f"Master Gain: {packet.body.buses[0].gain}")
+```
+
+#### Manual Packet Construction
+```python
+from aiovban.packet import VBANPacket
+from aiovban.packet.headers.audio import VBANAudioHeader
+from aiovban.enums import VBANSampleRate
+
+# Construct a custom VBAN audio header
+header = VBANAudioHeader(
+    sample_rate=VBANSampleRate.RATE_44100, 
+    channels=2, 
+    samples_per_frame=256,
+    streamname="Stream1"
+)
+
+# Wrap in a packet
+packet = VBANPacket(header=header, body=b'\x00' * 1024)
+packed_bytes = packet.pack()
+```
+
+### Interactive TUI
+
+`aiovban` comes with a powerful terminal-based mixer. You can launch it directly from your terminal:
+
+```sh
+aiovban-tui --register 192.168.1.50
+```
+
+*Note: Click on strip titles to rename them.*
 
 ## License
 
-This project is licensed under the MIT License. See the `LICENSE` file for more details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
 
-## Contact
+## Contributing
 
-For any questions or issues, please open an issue on the GitHub repository.
-
----
-
-This README provides a brief overview of the project, installation instructions, usage examples, and contribution guidelines.
+Contributions are welcome! Please see our [Contributing Guide](CONTRIBUTING.md) for details on our development workflow and coding standards.

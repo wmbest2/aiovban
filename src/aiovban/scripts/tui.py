@@ -49,6 +49,7 @@ class MixerButtonPressed(Message):
 # --- Separator ---
 
 class VerticalSeparator(Static):
+    """A vertical block separator to distinguish device groups."""
     DEFAULT_CSS = f"""
     VerticalSeparator {{
         width: 2; height: 100%; content-align: center middle;
@@ -208,7 +209,7 @@ class VBANTUIApp(App):
     .global-btn:hover { background: $primary; }
     HorizontalScroll { height: 32; }
     #buses-scroll { height: 18; }
-    #debug-log { height: 8; border: solid yellow; }
+    #debug-log { height: 10; border: solid yellow; }
     #debug-log.-hidden { display: none; }
     """
     BINDINGS = [("q", "quit", "Quit"), ("d", "toggle_debug", "Debug")]
@@ -247,6 +248,12 @@ class VBANTUIApp(App):
         self.set_interval(1.0, self._update_status)
         asyncio.create_task(self._run_vban())
 
+    def action_toggle_debug(self) -> None:
+        self.query_one("#debug-log", RichLog).toggle_class("-hidden")
+
+    def _debug(self, msg: str) -> None:
+        self.query_one("#debug-log", RichLog).write(msg)
+
     def _update_status(self) -> None:
         if not self._remote:
             self.sub_title = "INITIALIZING..."
@@ -259,48 +266,19 @@ class VBANTUIApp(App):
         self._client = AsyncVBANClient(ignore_audio_streams=True, application_data=VBANApplicationData(application_name="VBAN TUI", features=Features.Audio | Features.Text, device_type=DeviceType.Receptor, version="0.1.0"))
         self._client.quick_reject = lambda addr: False
         
-        # We NO LONGER hook process_packet here because we use the Remote's callback
         await self._client.listen(self.vban_host, self.vban_port)
+        self._debug(f"VBAN Listener started on {self.vban_host}:{self.vban_port}")
+        
         for target in self.register_targets:
             h, *p = target.split(":"); port = int(p[0]) if p else 6980
             device = await self._client.register_device(h, port)
             self._remote = VoicemeeterRemote(device, self.command_stream_name)
             self._remote.add_callback(self._on_remote_update)
             await self._remote.start()
+            self._debug(f"Registered VM remote for {h}:{port} (Command stream: {self.command_stream_name})")
         while True: await asyncio.sleep(2)
 
-    def _on_remote_update(self, remote: VoicemeeterRemote) -> None:
-        """Callback from VoicemeeterRemote when new state arrives."""
-        # This is called frequently, so we just trigger a UI update
-        # In Textual, we can call self.refresh() or just let the update logic handle it
-        # Actually, we need the original body to get VU levels, or we update remote to store levels too
-        pass
-
-    def on_mixer_button_pressed(self, event: MixerButtonPressed) -> None:
-        if event.button.id == "global-restart" and self._remote: asyncio.create_task(self._remote.restart())
-        elif event.button.id == "global-show" and self._remote: asyncio.create_task(self._remote.show())
-
-    def on_gain_changed(self, message: GainChanged) -> None:
-        if self._remote: asyncio.create_task(self._remote.strips[message.index].set_gain(message.value) if message.kind == "strip" else self._remote.buses[message.index].set_gain(message.value))
-
-    def on_toggle_request(self, message: ToggleRequest) -> None:
-        if not self._remote: return
-        obj = self._remote.strips[message.index] if message.kind == "strip" else self._remote.buses[message.index]
-        nv = not message.current_state
-        if message.target == "Mute": asyncio.create_task(obj.set_mute(nv))
-        elif message.target == "Solo": asyncio.create_task(obj.set_solo(nv))
-        else: asyncio.create_task(obj.set_bus_routing(message.target, nv))
-
-    @work
-    async def on_rename_requested(self, message: RenameRequested) -> None:
-        if message.kind != "enrich" and self._remote:
-            new_name = await self.push_screen_wait(RenameModal(message.current_name))
-            if new_name is not None: await (self._remote.strips[message.index] if message.kind == "strip" else self._remote.buses[message.index]).set_label(new_name)
-
-    def _on_rt_update(self, body: RTPacketBodyType0) -> None:
-        # We still need the raw body here because the TUI shows VU levels which aren't yet in the Remote abstraction
-        if self._remote: self._remote.apply_rt_packet(body)
-        
+    def _on_remote_update(self, remote: VoicemeeterRemote, body: RTPacketBodyType0) -> None:
         st_widgets = self.query(StripWidget).filter(".strip")
         bus_widgets = self.query(StripWidget).filter(".bus")
         v_type = body.voice_meeter_type
@@ -313,7 +291,7 @@ class VBANTUIApp(App):
                 q = self.query(f"#sep-{k}-{idx}")
                 if q: q.first().set_class(idx != v, "-hidden")
 
-        active_strips = self._remote.strips
+        active_strips = remote.strips
         for i, w in enumerate(st_widgets):
             is_active = i < len(active_strips)
             w.set_class(not is_active, "-hidden")
@@ -323,13 +301,46 @@ class VBANTUIApp(App):
                 else: raw = body.input_levels[10+(i-phys_in)*8:10+(i-phys_in+1)*8]
                 w.update(s.label, [v/65535.0 for v in raw], body.strips[i].state, s.gain, s.is_virtual)
 
-        active_buses = self._remote.buses
+        active_buses = remote.buses
         for i, w in enumerate(bus_widgets):
             is_active = i < len(active_buses)
             w.set_class(not is_active, "-hidden")
             if is_active:
                 b = active_buses[i]
                 w.update(b.label, [v/65535.0 for v in body.output_levels[i*8:(i+1)*8]], body.buses[i].state, b.gain, b.is_virtual)
+
+    def on_mixer_button_pressed(self, event: MixerButtonPressed) -> None:
+        if event.button.id == "global-restart" and self._remote:
+            self._debug("ACTION: Global Restart engine")
+            asyncio.create_task(self._remote.restart())
+        elif event.button.id == "global-show" and self._remote:
+            self._debug("ACTION: Global Show window")
+            asyncio.create_task(self._remote.show())
+
+    def on_gain_changed(self, message: GainChanged) -> None:
+        if self._remote:
+            obj = self._remote.strips[message.index] if message.kind == "strip" else self._remote.buses[message.index]
+            self._debug(f"ACTION: {message.kind}[{message.index}] Gain -> {message.value:.1f}")
+            asyncio.create_task(obj.set_gain(message.value))
+
+    def on_toggle_request(self, message: ToggleRequest) -> None:
+        if not self._remote: return
+        obj = self._remote.strips[message.index] if message.kind == "strip" else self._remote.buses[message.index]
+        nv = not message.current_state
+        self._debug(f"ACTION: {message.kind}[{message.index}] Toggle {message.target} -> {nv}")
+        if message.target == "Mute": asyncio.create_task(obj.set_mute(nv))
+        elif message.target == "Solo": asyncio.create_task(obj.set_solo(nv))
+        else: asyncio.create_task(obj.set_bus_routing(message.target, nv))
+
+    @work
+    async def on_rename_requested(self, message: RenameRequested) -> None:
+        if message.kind != "enrich" and self._remote:
+            self._debug(f"ACTION: Opening rename modal for {message.kind}[{message.index}]")
+            new_name = await self.push_screen_wait(RenameModal(message.current_name))
+            if new_name is not None:
+                obj = self._remote.strips[message.index] if message.kind == "strip" else self._remote.buses[message.index]
+                self._debug(f"ACTION: Renaming {obj.identifier} -> {new_name}")
+                await obj.set_label(new_name)
 
     async def on_unmount(self) -> None:
         if self._remote: await self._remote.stop()

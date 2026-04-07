@@ -151,11 +151,11 @@ class VoicemeeterRemote:
                 logger.error(f"Error in VoicemeeterRemote worker: {e}")
                 await asyncio.sleep(1)
 
-    def add_callback(self, callback: Callable[['VoicemeeterRemote'], None]):
+    def add_callback(self, callback: Callable[['VoicemeeterRemote', RTPacketBodyType0], None]):
         """Add a callback to be notified when state updates arrive."""
         self._callbacks.append(callback)
 
-    def remove_callback(self, callback: Callable[['VoicemeeterRemote'], None]):
+    def remove_callback(self, callback: Callable[['VoicemeeterRemote', RTPacketBodyType0], None]):
         self._callbacks.remove(callback)
 
     async def restart(self):
@@ -217,6 +217,6 @@ class VoicemeeterRemote:
 
         for callback in self._callbacks:
             try:
-                callback(self)
+                callback(self, body)
             except Exception as e:
                 logger.error(f"Error in VoicemeeterRemote callback: {e}")

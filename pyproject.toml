@@ -39,6 +39,7 @@ Changelog = "https://github.com/wmbest2/aiovban/releases"
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
+    "pytest-asyncio",
     "aiovban-pyaudio[cli]",
 ]
 

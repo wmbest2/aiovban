@@ -6,8 +6,14 @@ from aiovban.enums import VBANSampleRate, State, VoicemeeterType
 from aiovban.packet.body.service.rt_packets import RTPacketBodyType0, Bus, Strip
 
 
-def generate_random_levels(num_levels):
-    return [random.randint(0, 65535) for _ in range(num_levels)]
+def random_unsigned_shorts(count):
+    """Generate a list of random unsigned 16-bit integers (0 to 65535)."""
+    return [random.randint(0, 65535) for _ in range(count)]
+
+
+def random_signed_shorts(count):
+    """Generate a list of random signed 16-bit integers (-32768 to 32767)."""
+    return [random.randint(-32768, 32767) for _ in range(count)]
 
 
 def generate_random_state():
@@ -28,22 +34,22 @@ class TestRTPacketBodyType0(unittest.TestCase):
             "buffer_size": 512,
             "voice_meeter_version": "2.0.0.0",
             "sample_rate": random.choice([rate for rate in VBANSampleRate]),
-            "input_levels": generate_random_levels(34),
-            "output_levels": generate_random_levels(64),
+            "input_levels": random_unsigned_shorts(34),
+            "output_levels": random_unsigned_shorts(64),
             "transport_bits": 0,
             "strips": [
                 Strip(
-                    label=f"Strip {i}" + "-" * random.randint(0, 100),
+                    label=f"Strip {i}",
                     state=generate_random_state(),
-                    layers=generate_random_levels(8),
+                    layers=random_signed_shorts(8),
                 )
                 for i in range(8)
             ],
             "buses": [
                 Bus(
-                    label=f"Bus {i}" + "-" * random.randint(0, 100),
+                    label=f"Bus {i}",
                     state=generate_random_state(),
-                    gain=random.randint(0, 65535),
+                    gain=random_signed_shorts(1)[0],
                 )
                 for i in range(8)
             ],
@@ -82,10 +88,9 @@ class TestRTPacketBodyType0(unittest.TestCase):
         self.assertEqual(len(unpacked_rt_packet.buses), len(self.sample_data["buses"]))
 
         for i in range(8):
-            # Truncate the label to 60 characters since that's the maximum length
             self.assertEqual(
                 unpacked_rt_packet.strips[i].label,
-                self.sample_data["strips"][i].label[:60],
+                self.sample_data["strips"][i].label,
             )
             self.assertEqual(
                 unpacked_rt_packet.strips[i].state, self.sample_data["strips"][i].state
@@ -94,10 +99,9 @@ class TestRTPacketBodyType0(unittest.TestCase):
                 unpacked_rt_packet.strips[i].layers,
                 self.sample_data["strips"][i].layers,
             )
-            # Truncate the label to 60 characters since that's the maximum length
             self.assertEqual(
                 unpacked_rt_packet.buses[i].label,
-                self.sample_data["buses"][i].label[:60],
+                self.sample_data["buses"][i].label,
             )
             self.assertEqual(
                 unpacked_rt_packet.buses[i].state, self.sample_data["buses"][i].state

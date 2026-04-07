@@ -12,12 +12,16 @@ from textual.widgets import Footer, Header, Label, RichLog, Static, Input, Butto
 
 from aiovban import VBANApplicationData, DeviceType
 from aiovban.asyncio import AsyncVBANClient, VBANDevice, VoicemeeterRemote
-from aiovban.enums import Features, State, VBANBaudRate
+from aiovban.enums import Features, State, VBANBaudRate, VoicemeeterType
 from aiovban.packet import VBANPacket
 from aiovban.packet.body import Utf8StringBody
 from aiovban.packet.body.service.rt_packets import RTPacketBodyType0
 from aiovban.packet.headers.service import ServiceType, VBANServiceHeader
 from aiovban.packet.headers.text import VBANTextHeader, VBANTextStreamType
+
+# --- Theme Colors ---
+COLOR_PHYS = "#0088AA"  # Cyan-Blue
+COLOR_VIRT = "#8844AA"  # Amethyst Purple
 
 # --- Messages ---
 
@@ -48,39 +52,44 @@ class MixerButtonPressed(Message):
         self.button = button
         super().__init__()
 
+# --- Separator ---
+
+class VerticalSeparator(Static):
+    """A vertical block separator to distinguish device groups."""
+    DEFAULT_CSS = f"""
+    VerticalSeparator {{
+        width: 2;
+        height: 100%;
+        content-align: center middle;
+        background: {COLOR_PHYS};
+        color: white;
+        text-style: bold;
+        margin: 0 1;
+    }}
+    VerticalSeparator.-virtual {{
+        background: {COLOR_VIRT};
+    }}
+    VerticalSeparator.-hidden {{
+        display: none;
+    }}
+    """
+    def __init__(self, label: str, id: str, classes: str = ""):
+        super().__init__(id=id, classes=classes)
+        self.label_text = label
+
+    def render(self) -> str:
+        return "\n".join(list(self.label_text))
+
 # --- Rename Modal ---
 
 class RenameModal(ModalScreen[str]):
     DEFAULT_CSS = """
-    RenameModal {
-        align: center middle;
-        background: rgba(0, 0, 0, 0.7);
-    }
-    #modal-container {
-        width: 50;
-        height: auto;
-        border: thick $primary;
-        background: $surface;
-        padding: 1 2;
-    }
-    #modal-container Label {
-        width: 100%;
-        content-align: center middle;
-        margin-bottom: 1;
-        text-style: bold;
-        color: white;
-    }
-    #modal-container Input {
-        margin-bottom: 1;
-    }
-    #modal-container Horizontal {
-        height: 3;
-        align: center middle;
-    }
-    #modal-container Button {
-        width: 1fr;
-        margin: 0 1;
-    }
+    RenameModal { align: center middle; background: rgba(0, 0, 0, 0.8); }
+    #modal-container { width: 50; height: auto; border: thick $primary; background: $surface; padding: 1 2; }
+    #modal-container Label { width: 100%; content-align: center middle; margin-bottom: 1; text-style: bold; color: white; }
+    #modal-container Input { margin-bottom: 1; }
+    #modal-container Horizontal { height: 3; align: center middle; }
+    #modal-container Button { width: 1fr; margin: 0 1; }
     """
     def __init__(self, old_name: str):
         super().__init__()
@@ -95,19 +104,15 @@ class RenameModal(ModalScreen[str]):
                 yield Button("OK", variant="success", id="ok")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "ok":
-            self.dismiss(self.query_one(Input).value)
-        else:
-            self.dismiss(None)
+        if event.button.id == "ok": self.dismiss(self.query_one(Input).value)
+        else: self.dismiss(None)
 
-    def on_mount(self) -> None:
-        self.query_one(Input).focus()
+    def on_mount(self) -> None: self.query_one(Input).focus()
 
 # --- Custom Title Label ---
 
 class TitleLabel(Label):
-    def on_click(self) -> None:
-        self.post_message(RenameRequested("enrich", 0, ""))
+    def on_click(self) -> None: self.post_message(RenameRequested("enrich", 0, ""))
 
 # --- Custom Button using Static ---
 
@@ -115,13 +120,11 @@ class MixerButton(Static):
     def __init__(self, label: str, id: Optional[str] = None, classes: str = ""):
         super().__init__(label, id=id, classes=classes)
         self.can_focus = True
-
-    def on_click(self) -> None:
-        self.post_message(MixerButtonPressed(self))
+    def on_click(self) -> None: self.post_message(MixerButtonPressed(self))
 
 # --- VU Meter ---
 
-def _level_bar(level: float, width: int = 16) -> str:
+def _level_bar(level: float, width: int = 12) -> str:
     filled = int(max(0.0, min(1.0, level)) * width)
     return "#" * filled + "-" * (width - filled)
 
@@ -129,11 +132,11 @@ class VUMeter(Static):
     levels: reactive[List[float]] = reactive([0.0, 0.0], layout=False)
     def render(self) -> str:
         lines = []
-        for i, level in enumerate(self.levels[:2]):
-            ch = "L" if i == 0 else "R"
-            bar = _level_bar(level, width=18)
+        bar_width = 14 if len(self.levels) > 2 else 20
+        for i, level in enumerate(self.levels):
+            bar = _level_bar(level, width=bar_width)
             color = "red" if level > 0.9 else "yellow" if level > 0.7 else "green"
-            lines.append(f"{ch} [{color}]{bar}[/{color}]")
+            lines.append(f"{i} [{color}]{bar}[/{color}]")
         return "\n".join(lines)
 
 _BUS_FLAGS = [
@@ -144,23 +147,26 @@ _BUS_FLAGS = [
 # --- Strip Widget ---
 
 class StripWidget(Vertical):
-    DEFAULT_CSS = """
-    StripWidget { width: 24; height: auto; border: solid white; background: black; padding: 0; margin: 0 1; }
-    StripWidget Label { width: 100%; content-align: center middle; height: 1; color: white; }
-    StripWidget TitleLabel { width: 100%; content-align: center middle; height: 1; background: white; color: black; text-style: bold; }
-    StripWidget .gain-label { color: yellow; }
-    StripWidget .gain-row { height: 1; layout: horizontal; margin: 1 0; }
-    StripWidget .gain-bar { width: 10; color: cyan; }
-    StripWidget .control-row { height: 1; layout: horizontal; margin: 1 0; }
-    StripWidget .sub-header { color: #666; background: #111; }
-    StripWidget .routing-container { height: auto; }
-    StripWidget .btn-row { height: 1; layout: horizontal; }
-    MixerButton { height: 1; content-align: center middle; background: #222; color: #ccc; margin: 0 1; width: 1fr; }
-    MixerButton:hover { background: #444; color: white; }
-    MixerButton.-active { background: #060; color: white; }
-    MixerButton.-mute.-active { background: #600; color: white; }
-    MixerButton.-solo.-active { background: #660; color: black; }
-    MixerButton.-gain { width: 5; background: #333; }
+    DEFAULT_CSS = f"""
+    StripWidget {{ width: 26; height: auto; border: solid {COLOR_PHYS}; background: $surface; padding: 0; margin: 0 1; }}
+    StripWidget.-virtual {{ border: solid {COLOR_VIRT}; }}
+    StripWidget Label {{ width: 100%; content-align: center middle; height: 1; color: $text; }}
+    StripWidget TitleLabel {{ width: 100%; content-align: center middle; height: 1; background: {COLOR_PHYS}; color: white; text-style: bold; }}
+    StripWidget.-virtual TitleLabel {{ background: {COLOR_VIRT}; color: white; }}
+    StripWidget .gain-label {{ color: $accent; text-style: bold; }}
+    StripWidget .gain-row {{ height: 1; layout: horizontal; margin: 1 0; }}
+    StripWidget .gain-bar {{ width: 10; color: $secondary; }}
+    StripWidget .control-row {{ height: 1; layout: horizontal; margin: 1 0; }}
+    StripWidget .sub-header {{ color: $text-disabled; background: $panel; }}
+    StripWidget .routing-container {{ height: auto; }}
+    StripWidget .btn-row {{ height: 1; layout: horizontal; }}
+    
+    MixerButton {{ height: 1; content-align: center middle; background: $panel; color: $text-muted; margin: 0 1; width: 1fr; }}
+    MixerButton:hover {{ background: $primary-darken-1; color: white; }}
+    MixerButton.-active {{ background: $success; color: white; }}
+    MixerButton.-mute.-active {{ background: $error; color: white; }}
+    MixerButton.-solo.-active {{ background: $warning; color: black; }}
+    MixerButton.-gain {{ width: 5; background: $panel-lighten-1; }}
     """
 
     def __init__(self, index: int, kind: str = "strip", **kwargs):
@@ -215,26 +221,23 @@ class StripWidget(Vertical):
     def on_mixer_button_pressed(self, event: MixerButtonPressed) -> None:
         event.stop()
         btn_id = event.button.id
-        if btn_id == "gain-up":
-            self.post_message(GainChanged(self.kind, self.index, min(12.0, self._current_gain + 1.0)))
-        elif btn_id == "gain-down":
-            self.post_message(GainChanged(self.kind, self.index, max(-60.0, self._current_gain - 1.0)))
-        elif btn_id == "mute":
-            self.post_message(ToggleRequest(self.kind, self.index, "Mute", bool(self._current_state & State.MODE_MUTE)))
-        elif btn_id == "solo":
-            self.post_message(ToggleRequest(self.kind, self.index, "Solo", bool(self._current_state & State.MODE_SOLO)))
+        if btn_id == "gain-up": self.post_message(GainChanged(self.kind, self.index, min(12.0, self._current_gain + 1.0)))
+        elif btn_id == "gain-down": self.post_message(GainChanged(self.kind, self.index, max(-60.0, self._current_gain - 1.0)))
+        elif btn_id == "mute": self.post_message(ToggleRequest(self.kind, self.index, "Mute", bool(self._current_state & State.MODE_MUTE)))
+        elif btn_id == "solo": self.post_message(ToggleRequest(self.kind, self.index, "Solo", bool(self._current_state & State.MODE_SOLO)))
         else:
             for label, flag in _BUS_FLAGS:
                 if btn_id == label.lower():
                     self.post_message(ToggleRequest(self.kind, self.index, label, bool(self._current_state & flag)))
                     break
 
-    def update(self, label: str, levels: List[float], state: State, gain: float) -> None:
+    def update(self, label: str, levels: List[float], state: State, gain: float, is_virtual: bool = False) -> None:
         self._current_label = label or self._default_label
         self._name_label.update(self._current_label)
-        self._vu.levels = levels[:2] if len(levels) >= 2 else levels + [0.0] * (2 - len(levels))
+        self._vu.levels = levels
         self._current_state = state
         self._current_gain = gain
+        self.set_class(is_virtual, "-virtual")
         self._mute_btn.set_class(bool(state & State.MODE_MUTE), "-active")
         pos = int(max(0, min(72, gain + 60)) / 72 * 10)
         self._gain_bar_label.update("[" + "=" * pos + "-" * (10 - pos) + "]")
@@ -249,10 +252,13 @@ class StripWidget(Vertical):
 
 class VBANTUIApp(App):
     CSS = """
-    Screen { layout: vertical; background: black; }
-    .section-header { background: #222; color: white; height: 1; content-align: center middle; }
-    HorizontalScroll { height: 24; }
-    #buses-scroll { height: 14; }
+    Screen { layout: vertical; background: $background; }
+    .section-header { background: #111; color: $text-muted; height: 1; content-align: center middle; border-bottom: solid #333; }
+    .global-bar { height: 3; background: $panel; border-bottom: solid #444; align: center middle; }
+    .global-btn { width: 24; background: #333; color: white; height: 1; content-align: center middle; margin: 0 2; }
+    .global-btn:hover { background: $primary; }
+    HorizontalScroll { height: 32; }
+    #buses-scroll { height: 18; }
     #debug-log { height: 8; border: solid yellow; }
     #debug-log.-hidden { display: none; }
     """
@@ -270,17 +276,29 @@ class VBANTUIApp(App):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Static("--- INPUT STRIPS (Click title to rename) ---", classes="section-header")
+        with Horizontal(classes="global-bar"):
+            yield MixerButton("RESTART AUDIO ENGINE", id="global-restart", classes="global-btn")
+            yield MixerButton("SHOW VM WINDOW", id="global-show", classes="global-btn")
+        yield Static("--- INPUT STRIPS ---", classes="section-header")
         with HorizontalScroll(id="strips-scroll"):
-            for i in range(8): yield StripWidget(i, kind="strip", classes="strip")
-        yield Static("--- OUTPUT BUSES (Click title to rename) ---", classes="section-header")
+            yield VerticalSeparator("PHYS", id="sep-strip-phys")
+            for i in range(8):
+                if i == 2: yield VerticalSeparator("VIRT", id="sep-strip-2", classes="-hidden -virtual")
+                if i == 3: yield VerticalSeparator("VIRT", id="sep-strip-3", classes="-hidden -virtual")
+                if i == 5: yield VerticalSeparator("VIRT", id="sep-strip-5", classes="-hidden -virtual")
+                yield StripWidget(i, kind="strip", classes="strip")
+        yield Static("--- OUTPUT BUSES ---", classes="section-header")
         with HorizontalScroll(id="buses-scroll"):
-            for i in range(8): yield StripWidget(i, kind="bus", classes="bus")
+            yield VerticalSeparator("PHYS", id="sep-bus-phys")
+            for i in range(8):
+                if i == 2: yield VerticalSeparator("VIRT", id="sep-bus-2", classes="-hidden -virtual")
+                if i == 3: yield VerticalSeparator("VIRT", id="sep-bus-3", classes="-hidden -virtual")
+                if i == 5: yield VerticalSeparator("VIRT", id="sep-bus-5", classes="-hidden -virtual")
+                yield StripWidget(i, kind="bus", classes="bus")
         yield RichLog(id="debug-log", classes="-hidden", max_lines=100, markup=True)
         yield Footer()
 
-    async def on_mount(self) -> None:
-        asyncio.create_task(self._run_vban())
+    async def on_mount(self) -> None: asyncio.create_task(self._run_vban())
 
     async def _run_vban(self) -> None:
         self._client = AsyncVBANClient(ignore_audio_streams=True, application_data=VBANApplicationData(application_name="VBAN TUI", features=Features.Audio | Features.Text, device_type=DeviceType.Receptor, version="0.1.0"))
@@ -297,29 +315,28 @@ class VBANTUIApp(App):
             device = await self._client.register_device(h, port)
             await device.rt_stream(update_interval=0xFF)
             self._remote = VoicemeeterRemote(device, self.command_stream_name)
-            self._debug(f"Registered device and VM remote for {h}:{port}")
+            self._debug(f"Registered VM remote for {h}:{port}")
         while True: await asyncio.sleep(2)
 
     def action_toggle_debug(self) -> None: self.query_one("#debug-log", RichLog).toggle_class("-hidden")
     def _debug(self, msg: str) -> None: self.query_one("#debug-log", RichLog).write(msg)
 
+    def on_mixer_button_pressed(self, event: MixerButtonPressed) -> None:
+        if event.button.id == "global-restart" and self._remote: asyncio.create_task(self._remote.restart())
+        elif event.button.id == "global-show" and self._remote: asyncio.create_task(self._remote.show())
+
     def on_gain_changed(self, message: GainChanged) -> None:
         if not self._remote: return
         obj = self._remote.strips[message.index] if message.kind == "strip" else self._remote.buses[message.index]
         asyncio.create_task(obj.set_gain(message.value))
-        self._debug(f"SET GAIN: {obj.identifier}={message.value:.1f}")
 
     def on_toggle_request(self, message: ToggleRequest) -> None:
         if not self._remote: return
         obj = self._remote.strips[message.index] if message.kind == "strip" else self._remote.buses[message.index]
         new_val = not message.current_state
-        if message.target == "Mute":
-            asyncio.create_task(obj.set_mute(new_val))
-        elif message.target == "Solo" and message.kind == "strip":
-            asyncio.create_task(obj.set_solo(new_val))
-        elif message.kind == "strip": # Routing button
-            asyncio.create_task(obj.set_bus_routing(message.target, new_val))
-        self._debug(f"TOGGLE: {obj.identifier}.{message.target}={new_val}")
+        if message.target == "Mute": asyncio.create_task(obj.set_mute(new_val))
+        elif message.target == "Solo": asyncio.create_task(obj.set_solo(new_val))
+        else: asyncio.create_task(obj.set_bus_routing(message.target, new_val))
 
     @work
     async def on_rename_requested(self, message: RenameRequested) -> None:
@@ -328,37 +345,45 @@ class VBANTUIApp(App):
         if new_name is not None:
             obj = self._remote.strips[message.index] if message.kind == "strip" else self._remote.buses[message.index]
             await obj.set_label(new_name)
-            self._debug(f"RENAME: {obj.identifier}={new_name}")
 
     def _on_rt_update(self, body: RTPacketBodyType0) -> None:
-        self.sub_title = f"Raw: {self._client.raw_packets_received}"
-        if self._remote:
-            self._remote.apply_rt_packet(body)
-        
+        if self._remote: self._remote.apply_rt_packet(body)
         strips = self.query(StripWidget).filter(".strip")
         buses = self.query(StripWidget).filter(".bus")
+        vm_type = body.voice_meeter_type
+        
+        phys_in = 2 if vm_type == VoicemeeterType.VOICEMEETER else 3 if vm_type == VoicemeeterType.BANANA else 5
+        phys_out = 2 if vm_type == VoicemeeterType.VOICEMEETER else 3 if vm_type == VoicemeeterType.BANANA else 5
+
+        # Show correct separators
+        for kind, val in [("strip", phys_in), ("bus", phys_out)]:
+            for idx in [2, 3, 5]:
+                sep_query = self.query(f"#sep-{kind}-{idx}")
+                if sep_query:
+                    sep = sep_query.first()
+                    sep.set_class(idx != val, "-hidden")
         
         for i, strip_data in enumerate(body.strips):
             if i < len(strips) and self._remote:
-                if i < 5: raw = body.input_levels[i * 2 : (i + 1) * 2]
-                else: raw = body.input_levels[10 + (i - 5) * 8 : 10 + (i - 4) * 8]
+                if i < phys_in: raw = body.input_levels[i * 2 : (i + 1) * 2]
+                else: 
+                    virt_idx = i - phys_in
+                    raw = body.input_levels[10 + virt_idx * 8 : 10 + (virt_idx + 1) * 8]
                 s = self._remote.strips[i]
-                strips[i].update(s.label, [v / 65535.0 for v in raw], strip_data.state, s.gain)
+                strips[i].update(s.label, [v / 65535.0 for v in raw], strip_data.state, s.gain, i >= phys_in)
+        
         for i, bus_data in enumerate(body.buses):
             if i < len(buses) and self._remote:
                 b = self._remote.buses[i]
-                buses[i].update(b.label, [v / 65535.0 for v in body.output_levels[i * 8 : (i + 1) * 8]], bus_data.state, b.gain)
+                buses[i].update(b.label, [v / 65535.0 for v in body.output_levels[i * 8 : (i + 1) * 8]], bus_data.state, b.gain, i >= phys_out)
 
     async def on_unmount(self) -> None:
         if self._client: self._client.close()
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host", default="0.0.0.0")
-    parser.add_argument("--port", type=int, default=6980)
-    parser.add_argument("--command-stream", default="Command1")
-    parser.add_argument("--register", nargs="+", default=[])
-    args = parser.parse_args()
-    VBANTUIApp(args.host, args.port, args.register, args.command_stream).run()
+    parser.add_argument("--host", default="0.0.0.0"); parser.add_argument("--port", type=int, default=6980)
+    parser.add_argument("--command-stream", default="Command1"); parser.add_argument("--register", nargs="+", default=[])
+    args = parser.parse_args(); VBANTUIApp(args.host, args.port, args.register, args.command_stream).run()
 
 if __name__ == "__main__": main()

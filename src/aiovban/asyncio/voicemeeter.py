@@ -80,6 +80,18 @@ class VoicemeeterRemote:
     def remove_callback(self, callback: Callable[['VoicemeeterRemote'], None]):
         self._callbacks.remove(callback)
 
+    async def restart(self):
+        """Restart the VoiceMeeter audio engine."""
+        await self.send_command("Command.Restart=1;")
+
+    async def show(self):
+        """Show the VoiceMeeter window."""
+        await self.send_command("Command.Show=1;")
+
+    async def lock(self, value: bool):
+        """Lock or unlock the VoiceMeeter GUI."""
+        await self.send_command(f"Command.Lock={1 if value else 0};")
+
     async def send_command(self, cmd: str):
         """Send a raw text command to VoiceMeeter."""
         header = VBANTextHeader(

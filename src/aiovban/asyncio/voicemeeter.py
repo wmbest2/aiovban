@@ -1,6 +1,7 @@
 import logging
 import asyncio
 import time
+from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Dict
 
 from .device import VBANDevice

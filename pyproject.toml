@@ -22,6 +22,13 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 keywords = ["vban", "audio", "asyncio", "voicemeeter"]
+dependencies = [
+    "textual>=8.2.3",
+]
+
+[project.scripts]
+aiovban-monitor = "aiovban.scripts.rt_monitor:main"
+aiovban-tui = "aiovban.scripts.tui:main"
 
 [project.urls]
 Homepage = "https://github.com/wmbest2/aiovban"
@@ -32,6 +39,7 @@ Changelog = "https://github.com/wmbest2/aiovban/releases"
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
+    "pytest-asyncio",
     "aiovban-pyaudio[cli]",
 ]
 

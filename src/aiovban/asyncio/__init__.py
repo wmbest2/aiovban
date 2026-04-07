@@ -8,6 +8,7 @@ from typing import Any
 
 from .device import VBANDevice
 from .streams import VBANOutgoingStream
+from .voicemeeter import VoicemeeterRemote
 from .. import VBANApplicationData
 from ..packet import ServiceType, VBANPacket
 from ..packet.body.service import DeviceType, Features
@@ -37,11 +38,11 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
     _registered_devices: dict = field(default_factory=dict, repr=False)
 
     _transport: Any = field(default=None, init=False, repr=False)
+    raw_packets_received: int = field(default=0, init=False, repr=False)
 
     async def listen(self, address="0.0.0.0", port=6980, loop=None):
         loop = loop or asyncio.get_running_loop()
 
-        # Create a socket and set the options
         from .protocol import VBANListenerProtocol
 
         self._transport, proto = await loop.create_datagram_endpoint(
@@ -51,6 +52,11 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
         )
 
         return proto.done
+
+    def send_datagram(self, data: bytes, addr: tuple) -> None:
+        """Send raw bytes via the listener socket so the source port matches the listening port."""
+        if self._transport:
+            self._transport.sendto(data, addr)
 
     def close(self):
         if self._transport:

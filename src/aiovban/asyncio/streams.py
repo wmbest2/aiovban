@@ -113,7 +113,7 @@ class VBANTextStream(VBANOutgoingStream):
     baud_rate: VBANBaudRate = VBANBaudRate.RATE_256000
 
     async def send_text(self, text: str):
-        header = VBANTextHeader(baud=self.baud_rate)
+        header = VBANTextHeader(baud=self.baud_rate, streamname=self.name)
         await self.send_packet(VBANPacket(header, Utf8StringBody(text)))
 
 
@@ -142,7 +142,11 @@ class VBANRTStream(VBANOutgoingStream, VBANIncomingStream):
                 if not registration_expiry.done():
                     registration_expiry.set_exception(e)
 
-        await self.send_packet(VBANPacket(rt_header))
+        # Send via the client's listener socket so VoiceMeeter replies to our listening port
+        self._framecounter += 1
+        packet = VBANPacket(rt_header)
+        packet.header.framecount = self._framecounter
+        self._client.send_datagram(packet.pack(), (self._address, self._port))
         timer_task = asyncio.create_task(start_expiry_timer())
         self.pending_timers.add(timer_task)
         timer_task.add_done_callback(self.pending_timers.discard)

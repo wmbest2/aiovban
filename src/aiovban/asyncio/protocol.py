@@ -49,6 +49,7 @@ class VBANListenerProtocol(VBANBaseProtocol):
         logger.info(f"Connection made to {transport}")
 
     def datagram_received(self, data, addr):
+        self.client.raw_packets_received += 1
         try:
             if self.client.quick_reject(addr[0]):
                 logger.debug(f"Quick rejected packet from {addr[0]}")

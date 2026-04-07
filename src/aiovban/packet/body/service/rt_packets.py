@@ -52,7 +52,7 @@ class RTPacketBodyType0(PacketBody):
 
         try:
             bus_states = struct.unpack("<" + "L" * 8, data[248:280])
-            bus_gain = struct.unpack("<" + "H" * 8, data[408:424])
+            bus_gain = struct.unpack("<" + "h" * 8, data[408:424])
         except struct.error as e:
             raise ValueError(f"Failed to unpack bus data: {e}")
 
@@ -83,14 +83,14 @@ class RTPacketBodyType0(PacketBody):
 
         try:
             strip_states = struct.unpack("<" + "L" * 8, data[216:248])
-            layer1_gain = struct.unpack("<" + "H" * 8, data[280:296])
-            layer2_gain = struct.unpack("<" + "H" * 8, data[296:312])
-            layer3_gain = struct.unpack("<" + "H" * 8, data[312:328])
-            layer4_gain = struct.unpack("<" + "H" * 8, data[328:344])
-            layer5_gain = struct.unpack("<" + "H" * 8, data[344:360])
-            layer6_gain = struct.unpack("<" + "H" * 8, data[360:376])
-            layer7_gain = struct.unpack("<" + "H" * 8, data[376:392])
-            layer8_gain = struct.unpack("<" + "H" * 8, data[392:408])
+            layer1_gain = struct.unpack("<" + "h" * 8, data[280:296])
+            layer2_gain = struct.unpack("<" + "h" * 8, data[296:312])
+            layer3_gain = struct.unpack("<" + "h" * 8, data[312:328])
+            layer4_gain = struct.unpack("<" + "h" * 8, data[328:344])
+            layer5_gain = struct.unpack("<" + "h" * 8, data[344:360])
+            layer6_gain = struct.unpack("<" + "h" * 8, data[360:376])
+            layer7_gain = struct.unpack("<" + "h" * 8, data[376:392])
+            layer8_gain = struct.unpack("<" + "h" * 8, data[392:408])
         except struct.error as e:
             raise ValueError(f"Failed to unpack strip data: {e}")
 
@@ -164,13 +164,13 @@ class RTPacketBodyType0(PacketBody):
             "<" + "L" * 8, *[int(strip.state) for strip in self.strips]
         )
         layer_gains_bytes = b"".join(
-            struct.pack("<" + "H" * 8, *[strip.layers[i] for strip in self.strips])
+            struct.pack("<" + "h" * 8, *[strip.layers[i] for strip in self.strips])
             for i in range(8)
         )
         bus_states_bytes = struct.pack(
             "<" + "L" * 8, *[int(bus.state) for bus in self.buses]
         )
-        bus_gains_bytes = struct.pack("<" + "H" * 8, *[bus.gain for bus in self.buses])
+        bus_gains_bytes = struct.pack("<" + "h" * 8, *[bus.gain for bus in self.buses])
         strip_names_bytes = b"".join(
             struct.pack("<60s", strip.label.encode("utf-8")) for strip in self.strips
         )

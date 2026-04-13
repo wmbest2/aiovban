@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import logging
 import sys
 
 import pyaudio
@@ -11,10 +12,10 @@ from aiovban.asyncio.util import BackPressureStrategy
 from ..util import get_device_by_name, setproctitle
 from ... import VBANAudioPlayer, __version__
 
+logger = logging.getLogger(__name__)
+
 
 def setup_logging(debug=False):
-    import logging
-
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
     handler = logging.StreamHandler(sys.stdout)
@@ -123,7 +124,14 @@ def main():
     )
 
     config = parser.parse_args()
+    setup_logging(config.debug)
+
+    try:
+        import uvloop
+        uvloop.install()
+        logger.info("Using uvloop for high-performance asyncio")
+    except ImportError:
+        logger.info("uvloop not found, using standard asyncio event loop")
 
     setproctitle("aioVBAN Stream Receiver")
-    setup_logging(config.debug)
     asyncio.run(run_loop(config))

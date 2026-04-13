@@ -163,12 +163,19 @@ class VBANAudioPlayer:
 
         try:
             while True:
+                # Wait for at least one packet
                 packet = await self.stream.get_packet()
                 resync = self.check_pyaudio(packet)
                 if resync:
                     self.sync_buffers()
-
                 self.write_data(packet)
+
+                # Now drain any other packets that arrived while we were processing
+                while (next_packet := self.stream.get_packet_nowait()) is not None:
+                    resync = self.check_pyaudio(next_packet)
+                    if resync:
+                        self.sync_buffers()
+                    self.write_data(next_packet)
         except asyncio.CancelledError as _:
             self.stop()
 

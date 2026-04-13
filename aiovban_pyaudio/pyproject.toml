@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiovban-pyaudio"
-version = "0.2.3"
+version = "0.2.4"
 authors = [
   { name="William Best", email="wmbest2@gmail.com" },
 ]
@@ -23,12 +23,15 @@ classifiers = [
 ]
 
 dependencies = [
-    "aiovban==1.0.3",
+    "aiovban==1.0.4",
     "pyaudio"
 ]
 
 [project.optional-dependencies]
-cli = ["setproctitle"]
+cli = [
+    "setproctitle",
+    "uvloop>=0.19.0; sys_platform != 'win32'",
+]
 
 [project.urls]
 Homepage = "https://github.com/wmbest2/aiovban"

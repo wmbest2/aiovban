@@ -114,7 +114,14 @@ def main():
     )
 
     config = parser.parse_args()
+    setup_logging(config.debug)
+
+    try:
+        import uvloop
+        uvloop.install()
+        logger.info("Using uvloop for high-performance asyncio")
+    except ImportError:
+        logger.info("uvloop not found, using standard asyncio event loop")
 
     setproctitle("aioVBAN Stream Sender")
-    setup_logging(config.debug)
     asyncio.run(run_loop(config))

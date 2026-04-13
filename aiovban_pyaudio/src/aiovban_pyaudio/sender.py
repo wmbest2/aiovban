@@ -68,8 +68,8 @@ class VBANAudioSender:
             body=BytesBody(audio_data),
         )
         if isinstance(self.stream, BufferedVBANOutgoingStream):
-            # Fast, thread-safe sync path
-            self.stream.send_packet_nowait(packet, loop=self._loop)
+            # Safe cross-thread async scheduling
+            self.stream.send_packet_threadsafe(packet, loop=self._loop)
             self._sent_packet_count += 1
         elif self._loop:
             # Fallback for non-buffered streams

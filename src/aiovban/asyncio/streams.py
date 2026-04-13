@@ -109,9 +109,13 @@ class BufferedVBANOutgoingStream(VBANOutgoingStream):
     async def send_packet(self, packet: VBANPacket):
         await self._buffer.put(packet)
 
-    def send_packet_nowait(self, packet: VBANPacket, loop: asyncio.AbstractEventLoop = None) -> bool:
+    def send_packet_nowait(self, packet: VBANPacket) -> bool:
         """Synchronously put a packet into the outgoing buffer."""
-        return self._buffer.put_nowait(packet, loop=loop)
+        return self._buffer.put_nowait(packet)
+
+    def send_packet_threadsafe(self, packet: VBANPacket, loop: asyncio.AbstractEventLoop) -> None:
+        """Thread-safely put a packet into the outgoing buffer."""
+        self._buffer.put_threadsafe(packet, loop)
 
     async def send_buffered_packets(self):
         while True:

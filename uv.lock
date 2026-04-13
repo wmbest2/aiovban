@@ -10,11 +10,10 @@ members = [
 
 [[package]]
 name = "aiovban"
-version = "1.0.4"
+version = "1.0.5"
 source = { editable = "." }
 dependencies = [
     { name = "textual" },
-    { name = "uvloop", marker = "sys_platform != 'win32'" },
 ]
 
 [package.optional-dependencies]
@@ -23,6 +22,9 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
 ]
+uvloop = [
+    { name = "uvloop", marker = "sys_platform != 'win32'" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -30,13 +32,13 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'" },
     { name = "textual", specifier = ">=8.2.3" },
-    { name = "uvloop", marker = "sys_platform != 'win32'", specifier = ">=0.19.0" },
+    { name = "uvloop", marker = "sys_platform != 'win32' and extra == 'uvloop'", specifier = ">=0.19.0" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["uvloop", "dev"]
 
 [[package]]
 name = "aiovban-pyaudio"
-version = "0.2.4"
+version = "0.2.5"
 source = { editable = "aiovban_pyaudio" }
 dependencies = [
     { name = "aiovban" },

@@ -12,15 +12,48 @@ An ergonomic, asyncio-first Python wrapper around the VBAN protocol.
 ## Features
 
 - **Full Protocol Support**: VBAN Audio, Text (Command), Service (Ping/RT), and Serial.
-- **Asyncio Native**: Built from the ground up for asynchronous applications.
+- **Asyncio Native**: Built from the ground up for asynchronous applications with support for **uvloop**.
+- **Performance Optimized**: 
+  - **Zero-copy** data handling using `memoryview` to reduce memory allocations.
+  - **Async Batch Draining** for high-throughput audio streams.
+  - **Thread-safe** cross-thread packet delivery for stable real-time audio.
 - **VoiceMeeter Abstraction**: High-level `VoicemeeterRemote` API for intuitive control of strips, buses, and engine commands.
 - **Interactive TUI**: Includes `aiovban-tui`, a full-featured terminal mixer for remote VoiceMeeter control.
+- **Audio Streaming**: Official support for PyAudio via the `aiovban-pyaudio` package.
 - **Type Safety**: Extensively typed using Python dataclasses and enums.
 
 ## Installation
 
 ```sh
+# Core library
 pip install aiovban
+
+# Audio streaming support (includes cli tools)
+pip install aiovban-pyaudio[cli]
+```
+
+## Performance
+
+For the best performance on macOS and Linux, ensure `uvloop` is installed. The CLI tools will automatically detect and use it to reduce CPU overhead:
+
+```sh
+pip install uvloop
+```
+
+`aiovban` uses "Zero-Copy" patterns throughout its audio pipeline. By using `memoryview` and synchronous fast-paths for packet handoff, the library minimizes the work the Python interpreter has to do, allowing for stable 48kHz+ audio streaming with low latency.
+
+## Audio Streaming (aiovban-pyaudio)
+
+The `aiovban-pyaudio` package provides a high-performance bridge between VBAN and your local sound card.
+
+### Receiving Audio
+```sh
+aiovban-receiver 192.168.1.50/Stream1 --output-device "MacBook Pro Speakers"
+```
+
+### Sending Audio
+```sh
+aiovban-sender --address 192.168.1.50 --stream-name "MacMic" --input-device "Built-in Microphone"
 ```
 
 ## Usage

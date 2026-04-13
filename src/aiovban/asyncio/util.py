@@ -34,15 +34,8 @@ class BackPressureQueue:
             BackPressureStrategy.DROP,
             BackPressureStrategy.RAISE,
         ]:
-            try:
-                self._queue.put_nowait(packet)
+            if self.put_nowait(packet):
                 return
-            except asyncio.QueueFull:
-                if self.back_pressure_strategy == BackPressureStrategy.RAISE:
-                    raise asyncio.QueueFull
-                else:
-                    logger.debug(f"{self.queue_name} full. Dropping item")
-                    return
 
         if self._queue.full():
             if self.back_pressure_strategy == BackPressureStrategy.DRAIN_OLDEST:
@@ -52,6 +45,51 @@ class BackPressureQueue:
                 self._queue.get_nowait()
 
         await self._queue.put(packet)
+
+    def put_nowait(self, packet: Any, loop: asyncio.AbstractEventLoop = None) -> bool:
+        """
+        Attempt to put an item in the queue without blocking.
+        Returns True if successful, False if the queue is full or strategy requires blocking/draining.
+        Thread-safe: can be called from background threads.
+        """
+        if loop is None:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                # Not in an event loop
+                return False
+
+        def _do_put():
+            if self.back_pressure_strategy in [
+                BackPressureStrategy.DROP,
+                BackPressureStrategy.RAISE,
+            ]:
+                try:
+                    self._queue.put_nowait(packet)
+                except asyncio.QueueFull:
+                    if self.back_pressure_strategy == BackPressureStrategy.RAISE:
+                        # We can't easily raise to a different thread, so we log it
+                        logger.error(f"{self.queue_name} full.")
+                    elif logger.isEnabledFor(logging.DEBUG):
+                        logger.debug(f"{self.queue_name} full. Dropping item")
+
+            elif not self._queue.full():
+                self._queue.put_nowait(packet)
+            
+            elif self.back_pressure_strategy == BackPressureStrategy.POP:
+                try:
+                    self._queue.get_nowait()
+                    self._queue.put_nowait(packet)
+                except asyncio.QueueEmpty:
+                    self._queue.put_nowait(packet)
+
+        # Fast path: if we are already in the loop thread, do it immediately
+        import threading
+        if getattr(loop, "_thread_id", None) == threading.get_ident():
+            _do_put()
+        else:
+            loop.call_soon_threadsafe(_do_put)
+        return True
 
     async def _drain_queue(self):
         # Leveraging the mutex to ensure that we don't have multiple drain operations happening at the same time

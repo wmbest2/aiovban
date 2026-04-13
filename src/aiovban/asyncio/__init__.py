@@ -85,6 +85,9 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
         return address not in self._registered_devices
 
     async def process_packet(self, address, port, packet):
+        if self.process_packet_nowait(address, port, packet):
+            return
+
         device: VBANDevice = self._registered_devices.get(address)
         if packet.header.streamname == "VBAN Service":
             if packet.header.service == ServiceType.Identification:
@@ -93,6 +96,12 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
 
         if device:
             await device.handle_packet(address, packet)
+
+    def process_packet_nowait(self, address, port, packet) -> bool:
+        device: VBANDevice = self._registered_devices.get(address)
+        if device:
+            return device.handle_packet_nowait(address, packet)
+        return False
 
     async def send_ping(
         self, address, port, type: PingFunctions = PingFunctions.Request

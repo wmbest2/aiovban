@@ -24,6 +24,7 @@ class PingFunctions(IntEnum):
         return self.value
 
 
+@VBANHeader.register_subclass(VBANSubProtocolTypes.SERVICE)
 @dataclass
 class VBANServiceHeader(VBANHeader):
     service: ServiceType = byte_b()

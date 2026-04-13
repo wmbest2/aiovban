@@ -7,7 +7,7 @@ from typing import Any
 import pyaudio
 
 from aiovban import VBANSampleRate
-from aiovban.asyncio.streams import VBANOutgoingStream
+from aiovban.asyncio.streams import VBANOutgoingStream, BufferedVBANOutgoingStream
 from aiovban.packet import VBANPacket, BytesBody
 from aiovban.packet.headers.audio import VBANAudioHeader, BitResolution, Codec
 from .enums import VBANPyAudioFormatMapping
@@ -67,10 +67,17 @@ class VBANAudioSender:
             ),
             body=BytesBody(audio_data),
         )
-        if self._loop:
+        if isinstance(self.stream, BufferedVBANOutgoingStream):
+            # Fast, thread-safe sync path
+            self.stream.send_packet_nowait(packet, loop=self._loop)
+            self._sent_packet_count += 1
+        elif self._loop:
+            # Fallback for non-buffered streams
             asyncio.run_coroutine_threadsafe(self.stream.send_packet(packet), self._loop)
             self._sent_packet_count += 1
-            if self._sent_packet_count % 100 == 0:
+
+        if self._sent_packet_count % 100 == 0:
+            if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f"Sent {self._sent_packet_count} packets")
 
     def send_all_audio_data(self, audio_data):

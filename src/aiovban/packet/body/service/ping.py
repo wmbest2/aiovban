@@ -74,6 +74,9 @@ class Ping(PacketBody, VBANApplicationData):
     def unpack(cls, data):
         expected_size = struct.calcsize(PING_STRUCT_FORMAT)
         if len(data) < expected_size:
+            # Handle memoryview which doesn't have ljust
+            if isinstance(data, memoryview):
+                data = data.tobytes()
             data = data.ljust(expected_size, b"\x00")
 
         unpacked_data = struct.unpack(PING_STRUCT_FORMAT, data[:expected_size])

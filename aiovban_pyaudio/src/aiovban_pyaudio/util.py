@@ -67,7 +67,7 @@ class FrameBuffer:
             max_frame_count (int): The maximum number of frames the buffer can hold.
             bytes_per_frame (int): The number of bytes per frame. Default is 4.
         """
-        self._buffer = b""
+        self._buffer = bytearray()
         self._frame_count = 0
         self._max_frame_count = max_frame_count
         self._bytes_per_frame = bytes_per_frame
@@ -82,7 +82,7 @@ class FrameBuffer:
             frames (int): The number of frames in the data.
         """
         with self._mutex:
-            self._buffer += data
+            self._buffer.extend(data)
             self._frame_count += frames
 
     def size(self):
@@ -107,21 +107,21 @@ class FrameBuffer:
             tuple: A tuple containing the read data, the number of frames read, and the number of frames dropped.
         """
         with self._mutex:
+            if drop_frames:
+                excess_frames = max(0, self._frame_count - self._max_frame_count)
+                if excess_frames > 0:
+                    bytes_to_drop = self._bytes_per_frame * excess_frames
+                    del self._buffer[:bytes_to_drop]
+                    self._frame_count -= excess_frames
+            else:
+                excess_frames = 0
+
             maximum_available_frames = min(num_frames, self._frame_count)
             bytes_for_frames = self._bytes_per_frame * maximum_available_frames
 
-            if drop_frames:
-                excess_frames = max(0, self._frame_count - self._max_frame_count)
-                bytes_to_drop = self._bytes_per_frame * excess_frames
-            else:
-                excess_frames = 0
-                bytes_to_drop = 0
-
-            buffer_data = self._buffer[bytes_to_drop : bytes_to_drop + bytes_for_frames]
-            self._buffer = self._buffer[bytes_to_drop + bytes_for_frames :]
-            self._frame_count = max(
-                0, self._frame_count - maximum_available_frames - excess_frames
-            )
+            buffer_data = bytes(self._buffer[:bytes_for_frames])
+            del self._buffer[:bytes_for_frames]
+            self._frame_count -= maximum_available_frames
 
             return buffer_data, maximum_available_frames, excess_frames
 
@@ -133,6 +133,6 @@ class FrameBuffer:
             bytes_per_frame (int): The new number of bytes per frame.
         """
         with self._mutex:
-            self._buffer = b""
+            self._buffer.clear()
             self._frame_count = 0
             self._bytes_per_frame = bytes_per_frame

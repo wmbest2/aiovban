@@ -37,12 +37,16 @@ class VBANPacket:
             )
 
         header = VBANHeader.unpack(data)
+        
+        # Use memoryview to avoid copying the body data
+        body_data = memoryview(data)[28:]
+
         if isinstance(header, VBANServiceHeader):
             if header.service == ServiceType.Identification:
                 from .body.service import Ping
 
                 return VBANPacket(
-                    header, Ping.unpack(data[28:]), timestamp=time.time_ns()
+                    header, Ping.unpack(body_data), timestamp=time.time_ns()
                 )
             elif header.service == ServiceType.RTPacket:
                 from .body.service import RTPacketBodyType0
@@ -50,18 +54,18 @@ class VBANPacket:
                 if header.function == 0x00:
                     return VBANPacket(
                         header,
-                        RTPacketBodyType0.unpack(data[28:]),
+                        RTPacketBodyType0.unpack(body_data),
                         timestamp=time.time_ns(),
                     )
             elif header.service == ServiceType.Chat_UTF8:
                 return VBANPacket(
-                    header, Utf8StringBody.unpack(data[28:]), timestamp=time.time_ns()
+                    header, Utf8StringBody.unpack(body_data), timestamp=time.time_ns()
                 )
 
         elif isinstance(header, VBANTextHeader):
             return VBANPacket(
-                header, Utf8StringBody.unpack(data[28:]), timestamp=time.time_ns()
+                header, Utf8StringBody.unpack(body_data), timestamp=time.time_ns()
             )
 
         # Default/fallback to BytesBody
-        return VBANPacket(header, BytesBody.unpack(data[28:]), timestamp=time.time_ns())
+        return VBANPacket(header, BytesBody.unpack(body_data), timestamp=time.time_ns())

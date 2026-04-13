@@ -35,6 +35,9 @@ class VBANDevice:
             raise ValueError(f"Invalid port {port}: must be between 0 and 65535")
 
     async def handle_packet(self, address, packet: VBANPacket):
+        if self.handle_packet_nowait(address, packet):
+            return
+
         stream: VBANStream = self._streams.get(packet.header.streamname)
         from ..packet.headers.service import VBANServiceHeader
 
@@ -52,10 +55,17 @@ class VBANDevice:
                 self.connected_application_data = body
 
         else:
-            logger.debug(
-                f"Received packet for unregistered stream {packet.header.streamname} from {address}"
-            )
-            logger.debug(packet.header)
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    f"Received packet for unregistered stream {packet.header.streamname} from {address}"
+                )
+                logger.debug(packet.header)
+
+    def handle_packet_nowait(self, address, packet: VBANPacket) -> bool:
+        stream: VBANStream = self._streams.get(packet.header.streamname)
+        if stream and isinstance(stream, VBANIncomingStream):
+            return stream.handle_packet_nowait(packet)
+        return False
 
     def receive_stream(
         self, stream_name: str, back_pressure_strategy=BackPressureStrategy.DROP

@@ -52,10 +52,17 @@ class VBANListenerProtocol(VBANBaseProtocol):
         self.client.raw_packets_received += 1
         try:
             if self.client.quick_reject(addr[0]):
-                logger.debug(f"Quick rejected packet from {addr[0]}")
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f"Quick rejected packet from {addr[0]}")
                 return
-            logger.debug(f"Received packet from {addr[0]}")
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"Received packet from {addr[0]}")
             packet = VBANPacket.unpack(data)
+
+            # Try to process synchronously first to avoid task overhead
+            if self.client.process_packet_nowait(addr[0], addr[1], packet):
+                return
+
             task = asyncio.create_task(
                 self.client.process_packet(addr[0], addr[1], packet)
             )
@@ -63,9 +70,11 @@ class VBANListenerProtocol(VBANBaseProtocol):
             self.pending_tasks.add(task)
             task.add_done_callback(self.pending_tasks.discard)
         except (VBANHeaderException, ValueError) as e:
-            logger.info(f"Error unpacking packet: {e}")
+            if logger.isEnabledFor(logging.INFO):
+                logger.info(f"Error unpacking packet: {e}")
         except Exception as e:
-            logger.error(f"Unexpected error processing packet: {e}")
+            if logger.isEnabledFor(logging.ERROR):
+                logger.error(f"Unexpected error processing packet: {e}")
 
 
 @dataclass

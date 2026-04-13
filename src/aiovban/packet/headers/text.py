@@ -26,6 +26,7 @@ class VBANTextStreamType(IntEnum):
     USER = 0xF0
 
 
+@VBANHeader.register_subclass(VBANSubProtocolTypes.TEXT)
 @dataclass
 class VBANTextHeader(VBANHeader):
     baud: VBANBaudRate = subprotocol_data()

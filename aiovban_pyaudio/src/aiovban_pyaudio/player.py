@@ -57,7 +57,7 @@ class VBANAudioPlayer:
             stream_callback=self.data_callback_in_thread,
         )
 
-    async def check_pyaudio(self, packet: VBANPacket):
+    def check_pyaudio(self, packet: VBANPacket):
         header = packet.header
         if not isinstance(header, VBANAudioHeader):
             return False
@@ -70,18 +70,22 @@ class VBANAudioPlayer:
             print(
                 f"Changing stream to {header.channels} channels, {header.sample_rate.rate} Hz, {header.samples_per_frame} samples per frame for stream {header.streamname}"
             )
-            logger.info("Stopping stream")
+            if logger.isEnabledFor(logging.INFO):
+                logger.info("Stopping stream")
             self._stream.stop_stream()
-            logger.info("Closing stream")
+            if logger.isEnabledFor(logging.INFO):
+                logger.info("Closing stream")
             self._stream.close()
 
             self.channels = header.channels
             self.sample_rate = header.sample_rate
             self.format = header.bit_resolution
 
-            logger.info("Opening new stream")
+            if logger.isEnabledFor(logging.INFO):
+                logger.info("Opening new stream")
             self._stream = self.setup_stream()
-            logger.info("Starting new stream")
+            if logger.isEnabledFor(logging.INFO):
+                logger.info("Starting new stream")
             self._stream.start_stream()
 
             return True
@@ -99,9 +103,10 @@ class VBANAudioPlayer:
         if not self._synced:
             if available_frame_count < frame_count * 2:  # Wait for 2 buffers worth
                 return self.silence(num_frames=frame_count), pyaudio.paContinue
-            logger.debug(
-                f"Cushion reached ({available_frame_count} frames), starting playback"
-            )
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    f"Cushion reached ({available_frame_count} frames), starting playback"
+                )
             self._synced = True
 
         (buffer_data, available_frames) = self.commit_data(frame_count)
@@ -125,17 +130,19 @@ class VBANAudioPlayer:
 
     def commit_data(self, frame_count):
         (buffer_size, available) = self._framebuffer.size()
-        probability_logger.info(
-            f"Buffer size: {buffer_size} \n Current Latency: {self._estimated_latency(available)} ms"
-        )
+        if probability_logger.isEnabledFor(logging.INFO):
+            probability_logger.info(
+                f"Buffer size: {buffer_size} \n Current Latency: {self._estimated_latency(available)} ms"
+            )
 
         (buffer_data, available_frames, dropped_frames) = self._framebuffer.read(
             frame_count
         )
         if dropped_frames > 0:
-            logger.info(
-                f"Dropping {dropped_frames} frames out of {frame_count} frames with maximum of {self.max_framebuffer_size} frames"
-            )
+            if logger.isEnabledFor(logging.INFO):
+                logger.info(
+                    f"Dropping {dropped_frames} frames out of {frame_count} frames with maximum of {self.max_framebuffer_size} frames"
+                )
         return buffer_data, available_frames
 
     def write_data(self, packet: VBANPacket):
@@ -143,6 +150,7 @@ class VBANAudioPlayer:
         byte_count = (
             header.samples_per_frame * header.channels * header.bit_resolution.byte_width
         )
+        # packet.body.pack() already returns a memoryview or bytes
         data = packet.body.pack()[:byte_count]
         self._framebuffer.write(data, header.samples_per_frame)
 
@@ -156,7 +164,7 @@ class VBANAudioPlayer:
         try:
             while True:
                 packet = await self.stream.get_packet()
-                resync = await self.check_pyaudio(packet)
+                resync = self.check_pyaudio(packet)
                 if resync:
                     self.sync_buffers()
 

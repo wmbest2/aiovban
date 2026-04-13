@@ -46,6 +46,7 @@ class Codec(IntEnum):
     USER = 0xF0
 
 
+@VBANHeader.register_subclass(VBANSubProtocolTypes.AUDIO)
 @dataclass
 class VBANAudioHeader(VBANHeader):
     samples_per_frame: int = byte_a(offset=1)

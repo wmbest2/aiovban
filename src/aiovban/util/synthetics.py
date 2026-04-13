@@ -61,16 +61,32 @@ class SyntheticMixin:
         for synthetic, fields in masks_by_name.items():
             assert sum(f.metadata[MASK] for f in fields) <= 0xFF
 
-            def getter(s, fields=fields):
-                return functools.reduce(
-                    lambda x, y: x
-                    | (
-                        (int(getattr(s, y.name)) - y.metadata["offset"])
-                        & y.metadata[MASK]
-                    ),
-                    fields,
-                    0,
-                )
+            if len(fields) == 1:
+                f = fields[0]
+                mask = f.metadata[MASK]
+                offset = f.metadata.get("offset", 0)
+                name = f.name
+
+                def getter(s, name=name, offset=offset, mask=mask):
+                    try:
+                        val = getattr(s, name)
+                        if val is None:
+                            return 0
+                        return (int(val) - offset) & mask
+                    except (AttributeError, TypeError):
+                        return 0
+            else:
+
+                def getter(s, fields=fields):
+                    return functools.reduce(
+                        lambda x, y: x
+                        | (
+                            (int(getattr(s, y.name) or 0) - y.metadata.get("offset", 0))
+                            & y.metadata[MASK]
+                        ),
+                        fields,
+                        0,
+                    )
 
             def setter(s, value, fields=fields):
                 if value is None:
@@ -81,10 +97,11 @@ class SyntheticMixin:
                             s,
                             f.name,
                             f.type(
-                                (int(value) & f.metadata[MASK]) + f.metadata["offset"]
+                                (int(value) & f.metadata[MASK])
+                                + f.metadata.get("offset", 0)
                             ),
                         )
-                    except TypeError as e:
+                    except (TypeError, ValueError) as e:
                         logger.error(f"Error with field {f.name} for value {value}", e)
 
             def deleter(s, fields=fields):

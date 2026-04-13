@@ -37,6 +37,9 @@ class VBANIncomingStream(VBANStream):
     async def handle_packet(self, packet: VBANPacket):
         await self._queue.put(packet)
 
+    def handle_packet_nowait(self, packet: VBANPacket) -> bool:
+        return self._queue.put_nowait(packet)
+
     async def get_packet(self) -> VBANPacket:
         return await self._queue.get()
 
@@ -67,9 +70,13 @@ class VBANOutgoingStream(VBANStream):
         )
 
     async def send_packet(self, packet: VBANPacket):
+        self.send_packet_sync(packet)
+
+    def send_packet_sync(self, packet: VBANPacket):
         self._framecounter += 1
         packet.header.framecount = self._framecounter
-        self._protocol.send_packet(packet, (self._address, self._port))
+        if self._protocol:
+            self._protocol.send_packet(packet, (self._address, self._port))
 
 
 @dataclass
@@ -102,10 +109,14 @@ class BufferedVBANOutgoingStream(VBANOutgoingStream):
     async def send_packet(self, packet: VBANPacket):
         await self._buffer.put(packet)
 
+    def send_packet_nowait(self, packet: VBANPacket, loop: asyncio.AbstractEventLoop = None) -> bool:
+        """Synchronously put a packet into the outgoing buffer."""
+        return self._buffer.put_nowait(packet, loop=loop)
+
     async def send_buffered_packets(self):
         while True:
             packet = await self._buffer.get()
-            await super().send_packet(packet)
+            self.send_packet_sync(packet)
 
 
 @dataclass

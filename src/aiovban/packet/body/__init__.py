@@ -38,4 +38,6 @@ class Utf8StringBody(PacketBody):
 
     @classmethod
     def unpack(cls, data):
+        if isinstance(data, memoryview):
+            return cls(data.tobytes().decode("utf-8"))
         return cls(data.decode("utf-8"))

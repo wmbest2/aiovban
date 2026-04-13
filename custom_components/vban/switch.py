@@ -1,0 +1,108 @@
+"""Switch platform for VBAN VoiceMeeter."""
+import voluptuous as vol
+from homeassistant.components.switch import SwitchEntity
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_platform
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from .const import DOMAIN
+from .entity import VBANBaseEntity
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the VBAN switches."""
+    vban_data = hass.data[DOMAIN]
+    remote = vban_data.remotes[entry.entry_id]
+
+    entities = []
+    for strip in remote.strips:
+        entities.append(VBANMuteSwitch(remote, "strip", strip.index))
+        entities.append(VBANSoloSwitch(remote, strip.index))
+        for bus_id in ["A1", "A2", "A3", "B1", "B2", "B3"]:
+            entities.append(VBANRoutingSwitch(remote, strip.index, bus_id))
+            
+    for bus in remote.buses:
+        entities.append(VBANMuteSwitch(remote, "bus", bus.index))
+
+    async_add_entities(entities)
+
+    platform = entity_platform.async_get_current_platform()
+    platform.async_register_entity_service(
+        "set_mute",
+        {vol.Required("mute"): bool},
+        "async_set_mute",
+    )
+
+class VBANMuteSwitch(VBANBaseEntity, SwitchEntity):
+    """Mute switch for VBAN."""
+
+    def __init__(self, remote, kind, index):
+        super().__init__(remote, kind, index)
+        self._attr_unique_id = f"{remote.device.address}_{kind}_{index}_mute"
+        self._attr_suggested_object_id = f"{kind}_{index + 1}_mute"
+
+    @property
+    def name(self):
+        label = self.obj.label or f"{self.kind.capitalize()} {self.index + 1}"
+        return f"{label} Mute"
+
+    @property
+    def is_on(self):
+        return self.obj.mute
+
+    async def async_turn_on(self, **kwargs):
+        await self.obj.set_mute(True)
+
+    async def async_turn_off(self, **kwargs):
+        await self.obj.set_mute(False)
+
+class VBANSoloSwitch(VBANBaseEntity, SwitchEntity):
+    """Solo switch for VBAN."""
+
+    def __init__(self, remote, index):
+        super().__init__(remote, "strip", index)
+        self._attr_unique_id = f"{remote.device.address}_strip_{index}_solo"
+        self._attr_suggested_object_id = f"strip_{index + 1}_solo"
+
+    @property
+    def name(self):
+        label = self.obj.label or f"Strip {self.index + 1}"
+        return f"{label} Solo"
+
+    @property
+    def is_on(self):
+        return self.obj.solo
+
+    async def async_turn_on(self, **kwargs):
+        await self.obj.set_solo(True)
+
+    async def async_turn_off(self, **kwargs):
+        await self.obj.set_solo(False)
+
+class VBANRoutingSwitch(VBANBaseEntity, SwitchEntity):
+    """Routing switch for VBAN."""
+
+    def __init__(self, remote, index, bus_id):
+        super().__init__(remote, "strip", index)
+        self.bus_id = bus_id.lower()
+        self._attr_unique_id = f"{remote.device.address}_strip_{index}_route_{self.bus_id}"
+        self._attr_suggested_object_id = f"strip_{index + 1}_route_{self.bus_id}"
+
+    @property
+    def name(self):
+        label = self.obj.label or f"Strip {self.index + 1}"
+        return f"{label} -> {self.bus_id.upper()}"
+
+    @property
+    def is_on(self):
+        return getattr(self.obj, self.bus_id)
+
+    async def async_turn_on(self, **kwargs):
+        await self.obj.set_bus_routing(self.bus_id, True)
+
+    async def async_turn_off(self, **kwargs):
+        await self.obj.set_bus_routing(self.bus_id, False)

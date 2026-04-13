@@ -64,9 +64,11 @@ class RTPacketBodyType0(PacketBody):
                 raise ValueError(
                     f"Insufficient data for bus {n}: data ends at {len(data)}, need {bus_end}"
                 )
-            bus_names.append(
-                data[bus_start:bus_end].decode("utf-8").strip("\x00")
-            )
+            # memoryview doesn't have decode, so we convert to bytes
+            chunk = data[bus_start:bus_end]
+            if isinstance(chunk, memoryview):
+                chunk = chunk.tobytes()
+            bus_names.append(chunk.decode("utf-8").strip("\x00"))
 
         return [
             Bus(label=bus_names[n], state=State(bus_states[n]), gain=bus_gain[n])
@@ -102,11 +104,11 @@ class RTPacketBodyType0(PacketBody):
                 raise ValueError(
                     f"Insufficient data for strip {n}: data ends at {len(data)}, need {strip_end}"
                 )
-            strip_names.append(
-                data[strip_start:strip_end]
-                .decode("utf-8")
-                .strip("\x00")
-            )
+            # memoryview doesn't have decode, so we convert to bytes
+            chunk = data[strip_start:strip_end]
+            if isinstance(chunk, memoryview):
+                chunk = chunk.tobytes()
+            strip_names.append(chunk.decode("utf-8").strip("\x00"))
 
         strips = []
         for n in range(8):

@@ -10,7 +10,7 @@ members = [
 
 [[package]]
 name = "aiovban"
-version = "1.0.5"
+version = "1.0.6"
 source = { editable = "." }
 dependencies = [
     { name = "textual" },
@@ -38,7 +38,7 @@ provides-extras = ["uvloop", "dev"]
 
 [[package]]
 name = "aiovban-pyaudio"
-version = "0.2.5"
+version = "0.2.6"
 source = { editable = "aiovban_pyaudio" }
 dependencies = [
     { name = "aiovban" },

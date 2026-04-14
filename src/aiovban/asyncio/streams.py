@@ -143,7 +143,8 @@ class VBANRTStream(VBANOutgoingStream, VBANIncomingStream):
         # Register for updates
         logger.info(f"Registering for updates for {self.update_interval} seconds")
         rt_header = VBANServiceHeader(
-            service=ServiceType.RTPacketRegister, additional_info=self.update_interval
+            service=ServiceType.RTPacketRegister, 
+            additional_info=self.update_interval
         )
         registration_expiry = asyncio.Future()
 

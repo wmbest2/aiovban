@@ -8,7 +8,7 @@ from ..device import VBANDevice
 from ...enums import State, VBANBaudRate, VoicemeeterType, BusMode
 from ...packet import VBANPacket
 from ...packet.body import Utf8StringBody
-from ...packet.body.service.rt_packets import RTPacketBodyType0
+from ...packet.body.service.rt_packets import RTPacketBodyType0, RTPacketBodyType1
 from ...packet.headers.text import VBANTextHeader, VBANTextStreamType
 
 from .strip import VoicemeeterStrip
@@ -52,6 +52,7 @@ class VoicemeeterRemote:
         self._cmd_framecount = 0
         self._callbacks: List[Callable[['VoicemeeterRemote', RTPacketBodyType0], None]] = []
         self._worker_task: Optional[asyncio.Task] = None
+        self._type1_renewal_task: Optional[asyncio.Task] = None
 
     @property
     def online(self) -> bool:
@@ -82,23 +83,26 @@ class VoicemeeterRemote:
         """Start the background worker to drain RT packets."""
         if self._worker_task:
             return
-        
+
         rt_stream = self.device._streams.get("Voicemeeter-RTP")
         if not rt_stream:
             rt_stream = await self.device.rt_stream(update_interval=0xFF)
-            
+
         self._worker_task = asyncio.create_task(self._worker(rt_stream))
+        self._type1_renewal_task = asyncio.create_task(self._renew_type1(rt_stream))
         logger.info(f"VoicemeeterRemote worker started for {self.device.address}")
 
     async def stop(self):
         """Stop the background worker."""
-        if self._worker_task:
-            self._worker_task.cancel()
-            try:
-                await self._worker_task
-            except asyncio.CancelledError:
-                pass
-            self._worker_task = None
+        for task in (self._worker_task, self._type1_renewal_task):
+            if task:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        self._worker_task = None
+        self._type1_renewal_task = None
 
     async def _worker(self, stream):
         """Background loop to consume RT packets."""
@@ -107,11 +111,22 @@ class VoicemeeterRemote:
                 packet = await stream.get_packet()
                 if isinstance(packet.body, RTPacketBodyType0):
                     self.apply_rt_packet(packet.body)
+                elif isinstance(packet.body, RTPacketBodyType1):
+                    self.apply_rt_packet_type1(packet.body)
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error(f"Error in VoicemeeterRemote worker: {e}")
                 await asyncio.sleep(1)
+
+    async def _renew_type1(self, rt_stream):
+        """Periodically re-register for Type 1 RT packets."""
+        try:
+            await rt_stream.renew_updates(function=0x01)
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"Error in Type 1 renewal: {e}")
 
     def add_callback(self, callback: Callable[['VoicemeeterRemote', RTPacketBodyType0], None]):
         """Add a callback to be notified when state updates arrive."""
@@ -201,18 +216,19 @@ class VoicemeeterRemote:
             if i < len(self._all_strips):
                 strip = self._all_strips[i]
                 strip.label = strip_data.label
+                strip.state = strip_data.state
                 strip.mute = bool(strip_data.state & State.MODE_MUTE)
                 strip.solo = bool(strip_data.state & State.MODE_SOLO)
                 strip.mono = bool(strip_data.state & State.MODE_MONO)
                 strip.mc = bool(strip_data.state & State.MODE_MUTEC)
                 strip.gain = strip_data.layers[0] / 100.0
                 strip.is_virtual = (i >= phys_in)
-                
+
                 ch_count = 2 if not strip.is_virtual else 8
                 if input_offset + ch_count <= len(body.input_levels):
-                    strip.levels = [lv / 100.0 for lv in body.input_levels[input_offset : input_offset + ch_count]]
+                    strip.levels = [lv / 65535.0 for lv in body.input_levels[input_offset : input_offset + ch_count]]
                     input_offset += ch_count
-                
+
                 strip.a1 = bool(strip_data.state & State.MODE_BUSA1)
                 strip.a2 = bool(strip_data.state & State.MODE_BUSA2)
                 strip.a3 = bool(strip_data.state & State.MODE_BUSA3)
@@ -224,6 +240,7 @@ class VoicemeeterRemote:
             if i < len(self._all_buses):
                 bus = self._all_buses[i]
                 bus.label = bus_data.label
+                bus.state = bus_data.state
                 bus.mute = bool(bus_data.state & State.MODE_MUTE)
                 bus.solo = bool(bus_data.state & State.MODE_SOLO)
                 bus.mono = bool(bus_data.state & State.MODE_MONO)
@@ -231,13 +248,42 @@ class VoicemeeterRemote:
                 bus.mode = BusMode((int(bus_data.state) & int(State.MODE_MASK)) >> 4)
                 bus.gain = bus_data.gain / 100.0
                 bus.is_virtual = (i >= phys_out)
-                
+
                 bus_offset = i * 8
                 if bus_offset + 8 <= len(body.output_levels):
-                    bus.levels = [lv / 100.0 for lv in body.output_levels[bus_offset : bus_offset + 8]]
+                    bus.levels = [lv / 65535.0 for lv in body.output_levels[bus_offset : bus_offset + 8]]
 
         for callback in self._callbacks:
             try:
                 callback(self, body)
             except Exception as e:
                 logger.error(f"Error in VoicemeeterRemote callback: {e}")
+
+    def apply_rt_packet_type1(self, body: RTPacketBodyType1):
+        """Update internal state from an RT packet Type 1 and notify callbacks."""
+        self.type = body.voice_meeter_type
+        self.version = body.voice_meeter_version
+        self.last_update = time.time()
+
+        for i, strip_param in enumerate(body.strips):
+            if i < len(self._all_strips):
+                strip = self._all_strips[i]
+                # Gain from Type 1 is dblevel (float)
+                strip.gain = strip_param.dblevel / 100.0
+                strip.state = State(strip_param.mode)
+                strip.mute = bool(strip.state & State.MODE_MUTE)
+                strip.solo = bool(strip.state & State.MODE_SOLO)
+                strip.mono = bool(strip.state & State.MODE_MONO)
+                strip.mc = bool(strip.state & State.MODE_MUTEC)
+                strip.a1 = bool(strip.state & State.MODE_BUSA1)
+                strip.a2 = bool(strip.state & State.MODE_BUSA2)
+                strip.a3 = bool(strip.state & State.MODE_BUSA3)
+                strip.b1 = bool(strip.state & State.MODE_BUSB1)
+                strip.b2 = bool(strip.state & State.MODE_BUSB2)
+                strip.b3 = bool(strip.state & State.MODE_BUSB3)
+                
+        for callback in self._callbacks:
+            try:
+                callback(self, body)
+            except Exception as e:
+                logger.error(f"Error in VoicemeeterRemote callback (Type 1): {e}")

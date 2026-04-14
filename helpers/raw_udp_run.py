@@ -32,12 +32,14 @@ if REGISTER_HOST:
     print(f"Sent Ping to {REGISTER_HOST}")
     time.sleep(0.1)
 
-    # 2. Try various registration styles
+    # 2. Register for Type 0 (level/state) and Type 1 (strip params) RT packets
     bitmask = b"\x06" + b"\x00" * 15 # IDs 1 and 2
-    send_reg(0, b"", b"VBAN Service") 
-    send_reg(0, bitmask, b"VBAN Service") 
-    send_reg(0, bitmask, b"VMRT") 
+    send_reg(0, b"", b"VBAN Service")
+    send_reg(0, bitmask, b"VBAN Service")
+    send_reg(0, bitmask, b"VMRT")
     send_reg(0, bitmask, b"Register RTP")
+    send_reg(1, b"", b"VBAN Service")
+    send_reg(1, bitmask, b"VBAN Service")
 
 print("Capturing for 30 seconds...")
 counts = Counter()
@@ -66,7 +68,8 @@ try:
         except socket.timeout:
             # Periodically re-register every 5 seconds
             if REGISTER_HOST and int(time.time() - start_time) % 5 == 0:
-                 send_reg(0, b"\x00\x01\x02", b"VBAN Service")
+                send_reg(0, b"\x00\x01\x02", b"VBAN Service")
+                send_reg(1, b"\x00\x01\x02", b"VBAN Service")
             continue
 except KeyboardInterrupt:
     pass

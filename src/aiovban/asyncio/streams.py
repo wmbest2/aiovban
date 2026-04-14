@@ -139,12 +139,13 @@ class VBANRTStream(VBANOutgoingStream, VBANIncomingStream):
     renewal_task: Any = field(default=None, init=False)
     pending_timers: set = field(default_factory=set, init=False)
 
-    async def register_for_updates(self):
+    async def register_for_updates(self, function: int = 0x00):
         # Register for updates
-        logger.info(f"Registering for updates for {self.update_interval} seconds")
+        logger.info(f"Registering for type {function} updates for {self.update_interval} seconds")
         rt_header = VBANServiceHeader(
-            service=ServiceType.RTPacketRegister, 
-            additional_info=self.update_interval
+            service=ServiceType.RTPacketRegister,
+            function=function,
+            additional_info=self.update_interval,
         )
         registration_expiry = asyncio.Future()
 
@@ -168,10 +169,10 @@ class VBANRTStream(VBANOutgoingStream, VBANIncomingStream):
         timer_task.add_done_callback(self.pending_timers.discard)
         return registration_expiry
 
-    async def renew_updates(self):
+    async def renew_updates(self, function: int = 0x00):
         try:
             while True:
-                waiter = await self.register_for_updates()
+                waiter = await self.register_for_updates(function)
                 await waiter
         except Exception as e:
             logger.error(f"Error in renew_updates: {e}")

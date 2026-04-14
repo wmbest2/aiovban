@@ -43,7 +43,8 @@ async def run_sender(chat_stream: VBANChatStream):
 async def main():
     parser = argparse.ArgumentParser(description="VBAN Chat Validation Utility")
     parser.add_argument("address", help="IP address of the remote VBAN device")
-    parser.add_argument("--port", type=int, default=6980, help="VBAN port (default: 6980)")
+    parser.add_argument("--remote-port", type=int, default=6980, help="Remote VBAN port (default: 6980)")
+    parser.add_argument("--local-port", type=int, default=0, help="Local port to bind to (default: 0, auto-assign)")
     parser.add_argument("--stream", default="VBAN Chat", help="Stream name (default: 'VBAN Chat')")
     parser.add_argument("--mode", choices=["both", "send", "listen"], default="both", 
                         help="Operating mode (default: both)")
@@ -52,10 +53,14 @@ async def main():
 
     client = AsyncVBANClient()
     # We need to listen to receive messages
-    await client.listen(address="0.0.0.0", port=args.port)
+    await client.listen(address="0.0.0.0", port=args.local_port)
+    
+    # Get the actual port if we used 0
+    local_addr = client._transport.get_extra_info("sockname")
+    print(f"Local listener bound to {local_addr[0]}:{local_addr[1]}")
     
     try:
-        device = await client.register_device(args.address, args.port)
+        device = await client.register_device(args.address, args.remote_port)
         chat = await device.chat_stream(args.stream)
 
         tasks = []

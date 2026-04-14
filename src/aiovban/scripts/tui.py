@@ -176,8 +176,12 @@ class StripWidget(Vertical):
     MixerButton {{ height: 1; content-align: center middle; background: $panel; color: $text-muted; margin: 0 1; width: 1fr; }}
     MixerButton:hover {{ background: $primary-darken-1; color: white; }}
     MixerButton.-active {{ background: $success; color: white; }}
-    MixerButton.-mute.-active {{ background: #600; color: white; }}
+    MixerButton.-mute.-solo-muted {{ background: #500; color: #f88; }}
+    MixerButton.-mute.-solo-muted.-blink-off {{ background: $panel; color: $text-muted; }}
+    /* Specificity fix: Ensure active mute ALWAYS overrides solo-muted/blink */
+    MixerButton.-mute.-active, MixerButton.-mute.-active.-solo-muted, MixerButton.-mute.-active.-blink-off {{ background: #600; color: white; }}
     MixerButton.-solo.-active {{ background: #660; color: black; }}
+
     MixerButton.-gain {{ width: 5; background: $panel-lighten-1; }}
     """
 
@@ -189,6 +193,7 @@ class StripWidget(Vertical):
         self._name_label: TitleLabel = None; self._vu: VUMeter = None; self._mute_btn: MixerButton = None
         self._solo_btn: MixerButton = None; self._bus_btns: dict = {}; self._gain_label: Label = None
         self._gain_bar_label: Label = None; self._current_gain = 0.0; self._current_state = State(0)
+        self._current_any_solo = False
 
     def compose(self) -> ComposeResult:
         self._name_label = TitleLabel(self._default_label); yield self._name_label
@@ -224,22 +229,34 @@ class StripWidget(Vertical):
                 if btn_id == label.lower():
                     self.post_message(ToggleRequest(self.kind, self.index, label, bool(self._current_state & flag))); break
 
-    def update(self, label: str, levels: List[float], state: State, gain: float, is_virtual: bool = False) -> None:
+    def update(self, label: str, levels: List[float], state: State, gain: float, is_virtual: bool = False, any_solo: bool = False) -> None:
         if label != self._current_label:
             self._current_label = label or self._default_label
             self._name_label.update(self._current_label)
         
         self._vu.levels = levels
         
+        is_muted = bool(state & State.MODE_MUTE)
+        is_solo = bool(state & State.MODE_SOLO)
+
         if state != self._current_state:
             self._current_state = state
-            self._mute_btn.set_class(bool(state & State.MODE_MUTE), "-active")
+            self._mute_btn.set_class(is_muted, "-active")
             if self._solo_btn:
-                self._solo_btn.set_class(bool(state & State.MODE_SOLO), "-active")
+                self._solo_btn.set_class(is_solo, "-active")
             if self.kind == "strip":
                 for bus_label, flag in _BUS_FLAGS:
                     if bus_label in self._bus_btns:
                         self._bus_btns[bus_label].set_class(bool(state & flag), "-active")
+
+        if any_solo != self._current_any_solo or state != self._current_state:
+            self._current_any_solo = any_solo
+            # Visual feedback for implicit mute via solo
+            # Only if not already explicitly muted and not the one who is soloed
+            is_solo_muted = any_solo and not is_solo and not is_muted
+            self._mute_btn.set_class(is_solo_muted, "-solo-muted")
+            if not is_solo_muted:
+                self._mute_btn.remove_class("-blink-off")
 
         if gain != self._current_gain:
             self._current_gain = gain
@@ -318,7 +335,12 @@ class VBANTUIApp(App):
                 if q: self._separators[sep_id] = q.first()
 
         self.set_interval(1.0, self._update_status)
+        self.set_interval(0.5, self._toggle_blink)
         asyncio.create_task(self._run_vban())
+
+    def _toggle_blink(self) -> None:
+        for btn in self.query("MixerButton.-solo-muted"):
+            btn.toggle_class("-blink-off")
 
     def action_toggle_debug(self) -> None:
         self.query_one("#debug-log", RichLog).toggle_class("-hidden")
@@ -391,6 +413,7 @@ class VBANTUIApp(App):
             self._rec_widget.paused = remote.recorder_paused
 
         active_strips = remote.strips
+        any_strip_solo = any(s.solo for s in active_strips)
         for i, w in enumerate(self._st_widgets):
             is_active = i < len(active_strips)
             w.set_class(not is_active, "-hidden")
@@ -398,15 +421,16 @@ class VBANTUIApp(App):
                 s = active_strips[i]
                 if i < phys_in: raw = body.input_levels[i*2:(i+1)*2]
                 else: raw = body.input_levels[10+(i-phys_in)*8:10+(i-phys_in+1)*8]
-                w.update(s.label, [v/65535.0 for v in raw], body.strips[i].state, s.gain, s.is_virtual)
+                w.update(s.label, [v/65535.0 for v in raw], body.strips[i].state, s.gain, s.is_virtual, any_solo=any_strip_solo)
 
         active_buses = remote.buses
+        any_bus_solo = any(b.solo for b in active_buses)
         for i, w in enumerate(self._bus_widgets):
             is_active = i < len(active_buses)
             w.set_class(not is_active, "-hidden")
             if is_active:
                 b = active_buses[i]
-                w.update(b.label, [v/65535.0 for v in body.output_levels[i*8:(i+1)*8]], body.buses[i].state, b.gain, b.is_virtual)
+                w.update(b.label, [v/65535.0 for v in body.output_levels[i*8:(i+1)*8]], body.buses[i].state, b.gain, b.is_virtual, any_solo=any_bus_solo)
 
     def on_mixer_button_pressed(self, event: MixerButtonPressed) -> None:
         if event.button.id == "global-restart" and self._remote:
@@ -462,4 +486,5 @@ def main():
     args = parser.parse_args()
     VBANTUIApp(args.host, args.port, args.register, args.command_stream, args.chat_stream).run()
 
-if __name__ == "__main__": main()
+if __name__ == "__main__":
+    main()

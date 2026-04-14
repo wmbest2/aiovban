@@ -225,6 +225,7 @@ class VoicemeeterRemote:
                 bus = self._all_buses[i]
                 bus.label = bus_data.label
                 bus.mute = bool(bus_data.state & State.MODE_MUTE)
+                bus.solo = bool(bus_data.state & State.MODE_SOLO)
                 bus.mono = bool(bus_data.state & State.MODE_MONO)
                 bus.eq = bool(bus_data.state & State.MODE_EQ)
                 bus.mode = BusMode((int(bus_data.state) & int(State.MODE_MASK)) >> 4)

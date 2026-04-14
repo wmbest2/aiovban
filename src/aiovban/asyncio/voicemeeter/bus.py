@@ -7,6 +7,7 @@ class VoicemeeterBus(VoicemeeterBase):
     mode: BusMode = BusMode.NORMAL
     levels: list[float] = field(default_factory=list)
     eq: bool = False
+    solo: bool = False
 
     @property
     def identifier(self) -> str:
@@ -19,3 +20,7 @@ class VoicemeeterBus(VoicemeeterBase):
     async def set_eq(self, value: bool):
         """Set EQ state."""
         await self._set_param("EQ", value)
+
+    async def set_solo(self, value: bool):
+        """Set solo state."""
+        await self._set_param("Solo", value)

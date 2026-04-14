@@ -1,7 +1,7 @@
 import argparse
 import asyncio
 import time
-from typing import List, Optional
+from typing import List, Optional, Any
 
 from textual import events, work
 from textual.app import App, ComposeResult
@@ -119,6 +119,44 @@ _BUS_FLAGS = [
     ("B1", State.MODE_BUSB1), ("B2", State.MODE_BUSB2), ("B3", State.MODE_BUSB3),
 ]
 
+# --- Recorder Widget ---
+
+class RecorderWidget(Static):
+    DEFAULT_CSS = """
+    RecorderWidget { height: 3; background: $panel; border-bottom: solid #444; align: center middle; }
+    RecorderWidget Horizontal { height: 1; align: center middle; margin-top: 1; }
+    MixerButton.-rec-active { background: #c33; color: white; }
+    MixerButton.-play-active { background: #3c3; color: white; }
+    MixerButton.-pause-active { background: #cc3; color: black; }
+    """
+    playing = reactive(False); recording = reactive(False); paused = reactive(False)
+    def compose(self) -> ComposeResult:
+        with Horizontal():
+            yield MixerButton("PLAY", id="rec-play", classes="global-btn")
+            yield MixerButton("STOP", id="rec-stop", classes="global-btn")
+            yield MixerButton("PAUSE", id="rec-pause", classes="global-btn")
+            yield MixerButton("RECORD", id="rec-record", classes="global-btn")
+    def watch_playing(self, value: bool) -> None: self.query_one("#rec-play", MixerButton).set_class(value, "-play-active")
+    def watch_recording(self, value: bool) -> None: self.query_one("#rec-record", MixerButton).set_class(value, "-rec-active")
+    def watch_paused(self, value: bool) -> None: self.query_one("#rec-pause", MixerButton).set_class(value, "-pause-active")
+
+# --- Chat Widget ---
+
+class ChatWidget(Vertical):
+    DEFAULT_CSS = """
+    ChatWidget { width: 40; height: 100%; border-left: solid #444; background: $surface; }
+    ChatWidget RichLog { height: 1fr; background: #000; border: none; }
+    ChatWidget Input { height: 3; border: none; background: #222; }
+    """
+    def compose(self) -> ComposeResult:
+        yield Label("--- VBAN CHAT ---", classes="section-header")
+        yield RichLog(id="chat-log", max_lines=500, markup=True)
+        yield Input(placeholder="Type here...", id="chat-input")
+    def on_mount(self) -> None:
+        self.query_one(Input).focus()
+    def write(self, msg: str) -> None:
+        self.query_one(RichLog).write(msg)
+
 # --- Strip Widget ---
 
 class StripWidget(Vertical):
@@ -162,8 +200,7 @@ class StripWidget(Vertical):
             yield MixerButton("+", id="gain-up", classes="-gain")
         with Horizontal(classes="control-row"):
             self._mute_btn = MixerButton("MUTE", id="mute", classes="-mute"); yield self._mute_btn
-            if self.kind == "strip":
-                self._solo_btn = MixerButton("SOLO", id="solo", classes="-solo"); yield self._solo_btn
+            self._solo_btn = MixerButton("SOLO", id="solo", classes="-solo"); yield self._solo_btn
         if self.kind == "strip":
             yield Label("ROUTING", classes="sub-header")
             with Vertical(classes="routing-container"):
@@ -188,21 +225,36 @@ class StripWidget(Vertical):
                     self.post_message(ToggleRequest(self.kind, self.index, label, bool(self._current_state & flag))); break
 
     def update(self, label: str, levels: List[float], state: State, gain: float, is_virtual: bool = False) -> None:
-        self._current_label = label or self._default_label; self._name_label.update(self._current_label)
-        self._vu.levels = levels; self._current_state = state; self._current_gain = gain
-        self.set_class(is_virtual, "-virtual"); self._mute_btn.set_class(bool(state & State.MODE_MUTE), "-active")
-        pos = int(max(0, min(72, gain + 60)) / 72 * 10); self._gain_bar_label.update("[" + "=" * pos + "-" * (10 - pos) + "]")
-        self._gain_label.update(f"{gain:.1f} dB")
-        if self.kind == "strip" and self._solo_btn:
-            self._solo_btn.set_class(bool(state & State.MODE_SOLO), "-active")
-            for bus_label, flag in _BUS_FLAGS:
-                if bus_label in self._bus_btns: self._bus_btns[bus_label].set_class(bool(state & flag), "-active")
+        if label != self._current_label:
+            self._current_label = label or self._default_label
+            self._name_label.update(self._current_label)
+        
+        self._vu.levels = levels
+        
+        if state != self._current_state:
+            self._current_state = state
+            self._mute_btn.set_class(bool(state & State.MODE_MUTE), "-active")
+            if self._solo_btn:
+                self._solo_btn.set_class(bool(state & State.MODE_SOLO), "-active")
+            if self.kind == "strip":
+                for bus_label, flag in _BUS_FLAGS:
+                    if bus_label in self._bus_btns:
+                        self._bus_btns[bus_label].set_class(bool(state & flag), "-active")
+
+        if gain != self._current_gain:
+            self._current_gain = gain
+            pos = int(max(0, min(72, gain + 60)) / 72 * 10)
+            self._gain_bar_label.update("[" + "=" * pos + "-" * (10 - pos) + "]")
+            self._gain_label.update(f"{gain:.1f} dB")
+        
+        self.set_class(is_virtual, "-virtual")
 
 # --- App ---
 
 class VBANTUIApp(App):
     CSS = """
-    Screen { layout: vertical; background: $background; }
+    Screen { layout: horizontal; background: $background; }
+    #main-container { width: 1fr; layout: vertical; }
     .section-header { background: #111; color: $text-muted; height: 1; content-align: center middle; border-bottom: solid #333; }
     .global-bar { height: 3; background: $panel; border-bottom: solid #444; align: center middle; }
     .global-btn { width: 24; background: #333; color: white; height: 1; content-align: center middle; margin: 0 2; }
@@ -215,36 +267,56 @@ class VBANTUIApp(App):
     BINDINGS = [("q", "quit", "Quit"), ("d", "toggle_debug", "Debug")]
     TITLE = "VBAN TUI"
 
-    def __init__(self, host: str, port: int, register: List[str], command_stream: str, **kwargs):
+    def __init__(self, host: str, port: int, register: List[str], command_stream: str, chat_stream: str = "VBAN Chat", **kwargs):
         super().__init__(**kwargs)
         self.vban_host = host; self.vban_port = port; self.register_targets = register
-        self.command_stream_name = command_stream; self._client: AsyncVBANClient = None
-        self._remote: Optional[VoicemeeterRemote] = None
+        self.command_stream_name = command_stream; self.chat_stream_name = chat_stream
+        self._client: AsyncVBANClient = None; self._remote: Optional[VoicemeeterRemote] = None
+        self._chat: Optional[Any] = None
+        
+        self._st_widgets: List[StripWidget] = []
+        self._bus_widgets: List[StripWidget] = []
+        self._rec_widget: Optional[RecorderWidget] = None
+        self._separators: dict = {}
 
     def compose(self) -> ComposeResult:
         yield Header()
-        with Horizontal(classes="global-bar"):
-            yield MixerButton("RESTART AUDIO ENGINE", id="global-restart", classes="global-btn")
-            yield MixerButton("SHOW VM WINDOW", id="global-show", classes="global-btn")
-        yield Static("--- INPUT STRIPS ---", classes="section-header")
-        with HorizontalScroll(id="strips-scroll"):
-            yield VerticalSeparator("PHYS", id="sep-strip-phys")
-            for i in range(8):
-                if i == 2: yield VerticalSeparator("VIRT", id="sep-strip-2", classes="-hidden -virtual")
-                if i == 3: yield VerticalSeparator("VIRT", id="sep-strip-3", classes="-hidden -virtual")
-                if i == 5: yield VerticalSeparator("VIRT", id="sep-strip-5", classes="-hidden -virtual")
-                yield StripWidget(i, kind="strip", classes="strip")
-        yield Static("--- OUTPUT BUSES ---", classes="section-header")
-        with HorizontalScroll(id="buses-scroll"):
-            yield VerticalSeparator("PHYS", id="sep-bus-phys")
-            for i in range(8):
-                if i == 2: yield VerticalSeparator("VIRT", id="sep-bus-2", classes="-hidden -virtual")
-                if i == 3: yield VerticalSeparator("VIRT", id="sep-bus-3", classes="-hidden -virtual")
-                if i == 5: yield VerticalSeparator("VIRT", id="sep-bus-5", classes="-hidden -virtual")
-                yield StripWidget(i, kind="bus", classes="bus")
-        yield RichLog(id="debug-log", classes="-hidden", max_lines=100, markup=True); yield Footer()
+        with Vertical(id="main-container"):
+            with Horizontal(classes="global-bar"):
+                yield MixerButton("RESTART AUDIO ENGINE", id="global-restart", classes="global-btn")
+                yield MixerButton("SHOW VM WINDOW", id="global-show", classes="global-btn")
+            yield RecorderWidget(id="recorder")
+            yield Static("--- INPUT STRIPS ---", classes="section-header")
+            with HorizontalScroll(id="strips-scroll"):
+                yield VerticalSeparator("PHYS", id="sep-strip-phys")
+                for i in range(8):
+                    if i == 2: yield VerticalSeparator("VIRT", id="sep-strip-2", classes="-hidden -virtual")
+                    if i == 3: yield VerticalSeparator("VIRT", id="sep-strip-3", classes="-hidden -virtual")
+                    if i == 5: yield VerticalSeparator("VIRT", id="sep-strip-5", classes="-hidden -virtual")
+                    yield StripWidget(i, kind="strip", classes="strip")
+            yield Static("--- OUTPUT BUSES ---", classes="section-header")
+            with HorizontalScroll(id="buses-scroll"):
+                yield VerticalSeparator("PHYS", id="sep-bus-phys")
+                for i in range(8):
+                    if i == 2: yield VerticalSeparator("VIRT", id="sep-bus-2", classes="-hidden -virtual")
+                    if i == 3: yield VerticalSeparator("VIRT", id="sep-bus-3", classes="-hidden -virtual")
+                    if i == 5: yield VerticalSeparator("VIRT", id="sep-bus-5", classes="-hidden -virtual")
+                    yield StripWidget(i, kind="bus", classes="bus")
+            yield RichLog(id="debug-log", classes="-hidden", max_lines=100, markup=True)
+        yield ChatWidget(id="chat")
+        yield Footer()
 
     async def on_mount(self) -> None:
+        # Cache widgets
+        self._st_widgets = list(self.query(StripWidget).filter(".strip"))
+        self._bus_widgets = list(self.query(StripWidget).filter(".bus"))
+        self._rec_widget = self.query_one(RecorderWidget)
+        for kind in ["strip", "bus"]:
+            for idx in ["phys", "2", "3", "5"]:
+                sep_id = f"sep-{kind}-{idx}"
+                q = self.query(f"#{sep_id}")
+                if q: self._separators[sep_id] = q.first()
+
         self.set_interval(1.0, self._update_status)
         asyncio.create_task(self._run_vban())
 
@@ -276,23 +348,50 @@ class VBANTUIApp(App):
             self._remote.add_callback(self._on_remote_update)
             await self._remote.start()
             self._debug(f"Registered VM remote for {h}:{port} (Command stream: {self.command_stream_name})")
+            
+            # Start Chat
+            self._chat = await device.chat_stream(self.chat_stream_name)
+            asyncio.create_task(self._chat_receiver())
+            self._debug(f"Chat stream {self.chat_stream_name} initialized")
+
         while True: await asyncio.sleep(2)
 
+    async def _chat_receiver(self) -> None:
+        while self._chat:
+            try:
+                msg = await self._chat.get_chat()
+                self.query_one(ChatWidget).write(f"[cyan]Remote:[/cyan] {msg}")
+            except Exception as e:
+                self._debug(f"Chat error: {e}")
+                await asyncio.sleep(1)
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id == "chat-input" and event.value:
+            if self._chat:
+                asyncio.create_task(self._chat.send_chat(event.value))
+                self.query_one(ChatWidget).write(f"[green]You:[/green] {event.value}")
+                event.input.value = ""
+
     def _on_remote_update(self, remote: VoicemeeterRemote, body: RTPacketBodyType0) -> None:
-        st_widgets = self.query(StripWidget).filter(".strip")
-        bus_widgets = self.query(StripWidget).filter(".bus")
         v_type = body.voice_meeter_type
         
         phys_in = 2 if v_type == VoicemeeterType.VOICEMEETER else 3 if v_type == VoicemeeterType.BANANA else 5
         phys_out = 2 if v_type == VoicemeeterType.VOICEMEETER else 3 if v_type == VoicemeeterType.BANANA else 5
         
         for k, v in [("strip", phys_in), ("bus", phys_out)]:
-            for idx in [2, 3, 5]:
-                q = self.query(f"#sep-{k}-{idx}")
-                if q: q.first().set_class(idx != v, "-hidden")
+            for idx in ["2", "3", "5"]:
+                sep_id = f"sep-{k}-{idx}"
+                if sep_id in self._separators:
+                    self._separators[sep_id].set_class(int(idx) != v if idx.isdigit() else False, "-hidden")
+
+        # Update Recorder
+        if self._rec_widget:
+            self._rec_widget.playing = remote.recorder_playing
+            self._rec_widget.recording = remote.recorder_recording
+            self._rec_widget.paused = remote.recorder_paused
 
         active_strips = remote.strips
-        for i, w in enumerate(st_widgets):
+        for i, w in enumerate(self._st_widgets):
             is_active = i < len(active_strips)
             w.set_class(not is_active, "-hidden")
             if is_active:
@@ -302,7 +401,7 @@ class VBANTUIApp(App):
                 w.update(s.label, [v/65535.0 for v in raw], body.strips[i].state, s.gain, s.is_virtual)
 
         active_buses = remote.buses
-        for i, w in enumerate(bus_widgets):
+        for i, w in enumerate(self._bus_widgets):
             is_active = i < len(active_buses)
             w.set_class(not is_active, "-hidden")
             if is_active:
@@ -316,6 +415,13 @@ class VBANTUIApp(App):
         elif event.button.id == "global-show" and self._remote:
             self._debug("ACTION: Global Show window")
             asyncio.create_task(self._remote.show())
+        elif event.button.id.startswith("rec-") and self._remote:
+            act = event.button.id[4:]
+            self._debug(f"ACTION: Recorder {act}")
+            if act == "play": asyncio.create_task(self._remote.set_recorder_play(True))
+            elif act == "stop": asyncio.create_task(self._remote.set_recorder_stop(True))
+            elif act == "pause": asyncio.create_task(self._remote.set_recorder_pause(not self._remote.recorder_paused))
+            elif act == "record": asyncio.create_task(self._remote.set_recorder_record(not self._remote.recorder_recording))
 
     def on_gain_changed(self, message: GainChanged) -> None:
         if self._remote:
@@ -348,8 +454,12 @@ class VBANTUIApp(App):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host", default="0.0.0.0"); parser.add_argument("--port", type=int, default=6980)
-    parser.add_argument("--command-stream", default="Command1"); parser.add_argument("--register", nargs="+", default=[])
-    args = parser.parse_args(); VBANTUIApp(args.host, args.port, args.register, args.command_stream).run()
+    parser.add_argument("--host", default="0.0.0.0")
+    parser.add_argument("--port", type=int, default=6980)
+    parser.add_argument("--command-stream", default="Command1")
+    parser.add_argument("--chat-stream", default="VBAN Chat")
+    parser.add_argument("--register", nargs="+", default=[])
+    args = parser.parse_args()
+    VBANTUIApp(args.host, args.port, args.register, args.command_stream, args.chat_stream).run()
 
 if __name__ == "__main__": main()

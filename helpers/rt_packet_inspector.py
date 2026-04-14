@@ -79,7 +79,7 @@ async def main():
     
     args = parser.parse_args()
 
-    client = RTPacketInspector(args.address, ignore_audio_streams=True)
+    client = RTPacketInspector(args.address)
     try:
         await client.listen(address="0.0.0.0", port=args.local_port)
         print(f"Local listener bound to 0.0.0.0:{args.local_port}")

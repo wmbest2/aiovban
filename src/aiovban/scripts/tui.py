@@ -147,13 +147,12 @@ class ChatWidget(Vertical):
     ChatWidget { width: 40; height: 100%; border-left: solid #444; background: $surface; }
     ChatWidget RichLog { height: 1fr; background: #000; border: none; }
     ChatWidget Input { height: 3; border: none; background: #222; }
+    ChatWidget.-hidden { display: none; }
     """
     def compose(self) -> ComposeResult:
         yield Label("--- VBAN CHAT ---", classes="section-header")
         yield RichLog(id="chat-log", max_lines=500, markup=True)
         yield Input(placeholder="Type here...", id="chat-input")
-    def on_mount(self) -> None:
-        self.query_one(Input).focus()
     def write(self, msg: str) -> None:
         self.query_one(RichLog).write(msg)
 
@@ -281,7 +280,7 @@ class VBANTUIApp(App):
     #debug-log { height: 10; border: solid yellow; }
     #debug-log.-hidden { display: none; }
     """
-    BINDINGS = [("q", "quit", "Quit"), ("d", "toggle_debug", "Debug")]
+    BINDINGS = [("q", "quit", "Quit"), ("d", "toggle_debug", "Debug"), ("c", "toggle_chat", "Chat")]
     TITLE = "VBAN TUI"
 
     def __init__(self, host: str, port: int, register: List[str], command_stream: str, chat_stream: str = "VBAN Chat", **kwargs):
@@ -320,7 +319,7 @@ class VBANTUIApp(App):
                     if i == 5: yield VerticalSeparator("VIRT", id="sep-bus-5", classes="-hidden -virtual")
                     yield StripWidget(i, kind="bus", classes="bus")
             yield RichLog(id="debug-log", classes="-hidden", max_lines=100, markup=True)
-        yield ChatWidget(id="chat")
+        yield ChatWidget(id="chat", classes="-hidden")
         yield Footer()
 
     async def on_mount(self) -> None:
@@ -345,6 +344,12 @@ class VBANTUIApp(App):
     def action_toggle_debug(self) -> None:
         self.query_one("#debug-log", RichLog).toggle_class("-hidden")
 
+    def action_toggle_chat(self) -> None:
+        chat = self.query_one(ChatWidget)
+        chat.toggle_class("-hidden")
+        if not chat.has_class("-hidden"):
+            chat.query_one(Input).focus()
+
     def _debug(self, msg: str) -> None:
         self.query_one("#debug-log", RichLog).write(msg)
 
@@ -357,7 +362,7 @@ class VBANTUIApp(App):
         else: self.sub_title = f"VBAN DEVICE {status}"
 
     async def _run_vban(self) -> None:
-        self._client = AsyncVBANClient(ignore_audio_streams=True, application_data=VBANApplicationData(application_name="VBAN TUI", features=Features.Audio | Features.Text, device_type=DeviceType.Receptor, version="0.1.0"))
+        self._client = AsyncVBANClient(application_data=VBANApplicationData(application_name="VBAN TUI", features=Features.Audio | Features.Text, device_type=DeviceType.Receptor, version="0.1.0"))
         self._client.quick_reject = lambda addr: False
         
         await self._client.listen(self.vban_host, self.vban_port)
@@ -394,8 +399,9 @@ class VBANTUIApp(App):
                 self.query_one(ChatWidget).write(f"[green]You:[/green] {event.value}")
                 event.input.value = ""
 
-    def _on_remote_update(self, remote: VoicemeeterRemote, body: RTPacketBodyType0) -> None:
-        v_type = body.voice_meeter_type
+    def _on_remote_update(self, remote: VoicemeeterRemote, body: Any) -> None:
+        v_type = remote.type
+        if not v_type: return
         
         phys_in = 2 if v_type == VoicemeeterType.VOICEMEETER else 3 if v_type == VoicemeeterType.BANANA else 5
         phys_out = 2 if v_type == VoicemeeterType.VOICEMEETER else 3 if v_type == VoicemeeterType.BANANA else 5
@@ -419,9 +425,7 @@ class VBANTUIApp(App):
             w.set_class(not is_active, "-hidden")
             if is_active:
                 s = active_strips[i]
-                if i < phys_in: raw = body.input_levels[i*2:(i+1)*2]
-                else: raw = body.input_levels[10+(i-phys_in)*8:10+(i-phys_in+1)*8]
-                w.update(s.label, [v/65535.0 for v in raw], body.strips[i].state, s.gain, s.is_virtual, any_solo=any_strip_solo)
+                w.update(s.label, s.levels, s.state, s.gain, s.is_virtual, any_solo=any_strip_solo)
 
         active_buses = remote.buses
         any_bus_solo = any(b.solo for b in active_buses)
@@ -430,7 +434,7 @@ class VBANTUIApp(App):
             w.set_class(not is_active, "-hidden")
             if is_active:
                 b = active_buses[i]
-                w.update(b.label, [v/65535.0 for v in body.output_levels[i*8:(i+1)*8]], body.buses[i].state, b.gain, b.is_virtual, any_solo=any_bus_solo)
+                w.update(b.label, b.levels, b.state, b.gain, b.is_virtual, any_solo=any_bus_solo)
 
     def on_mixer_button_pressed(self, event: MixerButtonPressed) -> None:
         if event.button.id == "global-restart" and self._remote:

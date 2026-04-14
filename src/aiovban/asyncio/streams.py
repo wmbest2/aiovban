@@ -212,11 +212,17 @@ class VBANRTStream(VBANOutgoingStream, VBANIncomingStream):
 
 @dataclass
 class VBANChatStream(VBANOutgoingStream, VBANIncomingStream):
+    def send_packet_sync(self, packet: VBANPacket):
+        """Send via the client's listener socket so our source port is the listening port."""
+        self._framecounter += 1
+        packet.header.framecount = self._framecounter
+        self._client.send_datagram(packet.pack(), (self._address, self._port))
+
     async def send_chat(self, text: str):
         """Send a chat message using the Chat_UTF8 service."""
         header = VBANServiceHeader(
             service=ServiceType.Chat_UTF8,
-            streamname=self.name
+            streamname=self.name,
         )
         await self.send_packet(VBANPacket(header, Utf8StringBody(text + "\0")))
 

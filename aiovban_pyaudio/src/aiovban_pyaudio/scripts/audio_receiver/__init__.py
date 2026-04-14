@@ -45,9 +45,7 @@ async def run_loop(config):
         device_type=DeviceType.Receptor,
         version=__version__,
     )
-    client = AsyncVBANClient(
-        ignore_audio_streams=False, application_data=application_data
-    )
+    client = AsyncVBANClient(application_data=application_data)
     listen_future = await client.listen(config.host_address, config.host_port)
 
     pyaudio_instance = pyaudio.PyAudio()

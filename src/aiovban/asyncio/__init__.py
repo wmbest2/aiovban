@@ -32,7 +32,6 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
     application_data: VBANApplicationData = field(
         default_factory=_default_application_data
     )
-    ignore_audio_streams: bool = True
     default_queue_size: int = 200
 
     _registered_devices: dict = field(default_factory=dict, repr=False)
@@ -48,7 +47,7 @@ class AsyncVBANClient(asyncio.DatagramProtocol):
         self._transport, proto = await loop.create_datagram_endpoint(
             lambda: VBANListenerProtocol(self),
             local_addr=(address, port),
-            allow_broadcast=not self.ignore_audio_streams,
+            allow_broadcast=True,
         )
 
         return proto.done

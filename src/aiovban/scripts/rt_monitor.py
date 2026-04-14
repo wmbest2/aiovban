@@ -182,7 +182,7 @@ async def run_monitor(args):
         version="0.1.0",
     )
 
-    client = AsyncVBANClient(ignore_audio_streams=False, application_data=application_data)
+    client = AsyncVBANClient(application_data=application_data)
     client.quick_reject = lambda addr: False
 
     monitor = Monitor(output_format=args.format, timeout=args.timeout)

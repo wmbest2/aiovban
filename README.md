@@ -62,6 +62,14 @@ aiovban-sender --address 192.168.1.50 --stream-name "MacMic" --input-device "Bui
 
 The `VoicemeeterRemote` class provides the easiest way to control a remote VoiceMeeter instance.
 
+#### State Synchronization and Latency
+
+It is important to understand how `VoicemeeterRemote` tracks the state of the remote mixer:
+
+- **Unidirectional State**: The `VoicemeeterRemote` object only reflects the state received from VoiceMeeter via **RT (Real-Time) packets**. It does not optimistically update its local state when you call a `set_` method.
+- **Update Latency**: When you call a method like `strip.set_mute(True)`, a VBAN-TEXT command is sent to VoiceMeeter. The value of `strip.mute` will **not** change until VoiceMeeter processes the command and sends back a new RT packet reflecting the change.
+- **Poll-based**: By default, `VoicemeeterRemote` registers for RT packets at a specific interval. The delay between setting a value and seeing it update in the API is typically between 20ms and 500ms, depending on network conditions and the `update_interval` configured.
+
 ```python
 import asyncio
 from aiovban.asyncio import AsyncVBANClient, VoicemeeterRemote

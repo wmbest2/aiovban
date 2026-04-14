@@ -51,8 +51,12 @@ class TestVoicemeeterPackage(unittest.TestCase):
         body = MagicMock(spec=RTPacketBodyType0)
         body.voice_meeter_type = VoicemeeterType.BANANA
         body.voice_meeter_version = "2.0.5.3"
-        
+        body.transport_bits = 0
+        body.input_levels = [0] * 34
+        body.output_levels = [0] * 64
+
         # Create mock strips with mono bit set
+
         mock_strips = []
         for i in range(8):
             s = MagicMock(spec=Strip)

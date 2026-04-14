@@ -206,3 +206,29 @@ class VBANRTStream(VBANOutgoingStream, VBANIncomingStream):
         for timer in list(self.pending_timers):
             timer.cancel()
         self.pending_timers.clear()
+
+
+@dataclass
+class VBANChatStream(VBANOutgoingStream, VBANIncomingStream):
+    async def send_chat(self, text: str):
+        """Send a chat message using the Chat_UTF8 service."""
+        header = VBANServiceHeader(
+            service=ServiceType.Chat_UTF8,
+            streamname=self.name
+        )
+        await self.send_packet(VBANPacket(header, Utf8StringBody(text + "\0")))
+
+    async def get_chat(self) -> str:
+        """Wait for and return the next chat message text."""
+        packet = await self.get_packet()
+        if isinstance(packet.body, Utf8StringBody):
+            return packet.body.text.strip("\0")
+        return str(packet.body)
+
+    async def handle_packet(self, packet: VBANPacket):
+        header = packet.header
+        if (
+            isinstance(header, VBANServiceHeader)
+            and header.service == ServiceType.Chat_UTF8
+        ):
+            await super().handle_packet(packet)

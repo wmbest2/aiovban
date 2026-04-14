@@ -6,6 +6,7 @@ from .streams import (
     VBANIncomingStream,
     VBANTextStream,
     VBANRTStream,
+    VBANChatStream,
     VBANStream,
     BufferedVBANOutgoingStream,
 )
@@ -43,9 +44,7 @@ class VBANDevice:
 
         if stream and isinstance(stream, VBANIncomingStream):
             await stream.handle_packet(packet)
-        elif packet.header.streamname == "VBAN Service" and isinstance(
-            packet.header, VBANServiceHeader
-        ):
+        elif isinstance(packet.header, VBANServiceHeader):
             if (
                 packet.header.service == ServiceType.Identification
                 and packet.header.function
@@ -53,8 +52,11 @@ class VBANDevice:
             ):
                 body: Ping = packet.body
                 self.connected_application_data = body
-
-        else:
+            elif packet.header.service == ServiceType.Chat_UTF8:
+                # Route to default chat stream if no specific stream registered
+                chat_stream = self._streams.get("VBAN Chat")
+                if chat_stream:
+                    await chat_stream.handle_packet(packet)
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(
                     f"Received packet for unregistered stream {packet.header.streamname} from {address}"
@@ -128,4 +130,16 @@ class VBANDevice:
 
         self._streams[stream.name] = stream
         self._streams["Voicemeeter-RTP"] = stream  # Responses come to this stream
+        return stream
+
+    async def chat_stream(
+        self,
+        stream_name: str = "VBAN Chat",
+        port: int = None,
+    ):
+        port = port or self.default_port
+        self._validate_port(port)
+        stream = VBANChatStream(stream_name, _client=self._client)
+        await stream.connect(self.address, port)
+        self._streams[stream_name] = stream
         return stream

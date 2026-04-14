@@ -1,69 +1,19 @@
 import logging
 import asyncio
 import time
-from dataclasses import dataclass, field
-from typing import Callable, List, Optional, Dict
+from typing import Callable, List, Optional
 
-from .device import VBANDevice
-from ..enums import State, VBANBaudRate, VoicemeeterType
-from ..packet import VBANPacket
-from ..packet.body import Utf8StringBody
-from ..packet.body.service.rt_packets import RTPacketBodyType0
-from ..packet.headers.text import VBANTextHeader, VBANTextStreamType
+from ..device import VBANDevice
+from ...enums import State, VBANBaudRate, VoicemeeterType, BusMode
+from ...packet import VBANPacket
+from ...packet.body import Utf8StringBody
+from ...packet.body.service.rt_packets import RTPacketBodyType0
+from ...packet.headers.text import VBANTextHeader, VBANTextStreamType
+
+from .strip import VoicemeeterStrip
+from .bus import VoicemeeterBus
 
 logger = logging.getLogger(__package__)
-
-@dataclass
-class VoicemeeterBase:
-    index: int
-    remote: 'VoicemeeterRemote'
-    label: str = ""
-    gain: float = 0.0
-    mute: bool = False
-    is_virtual: bool = False
-
-    @property
-    def identifier(self) -> str:
-        raise NotImplementedError
-
-    async def set_gain(self, value: float):
-        """Set gain in dB (-60.0 to +12.0)."""
-        value = max(-60.0, min(12.0, value))
-        await self.remote.send_command(f"{self.identifier}.Gain={value:.1f};")
-
-    async def set_mute(self, value: bool):
-        """Set mute state."""
-        await self.remote.send_command(f"{self.identifier}.Mute={1 if value else 0};")
-
-    async def set_label(self, value: str):
-        """Set the label."""
-        await self.remote.send_command(f'{self.identifier}.Label="{value}";')
-
-class VoicemeeterStrip(VoicemeeterBase):
-    solo: bool = False
-    a1: bool = False
-    a2: bool = False
-    a3: bool = False
-    b1: bool = False
-    b2: bool = False
-    b3: bool = False
-
-    @property
-    def identifier(self) -> str:
-        return f"Strip[{self.index}]"
-
-    async def set_solo(self, value: bool):
-        await self.remote.send_command(f"{self.identifier}.Solo={1 if value else 0};")
-
-    async def set_bus_routing(self, bus: str, value: bool):
-        """Set routing to A1, B1, etc."""
-        target = bus.upper()
-        await self.remote.send_command(f"{self.identifier}.{target}={1 if value else 0};")
-
-class VoicemeeterBus(VoicemeeterBase):
-    @property
-    def identifier(self) -> str:
-        return f"Bus[{self.index}]"
 
 class VoicemeeterRemote:
     """High-level abstraction for controlling VoiceMeeter via VBAN."""
@@ -198,6 +148,7 @@ class VoicemeeterRemote:
                 strip.label = strip_data.label
                 strip.mute = bool(strip_data.state & State.MODE_MUTE)
                 strip.solo = bool(strip_data.state & State.MODE_SOLO)
+                strip.mono = bool(strip_data.state & State.MODE_MONO)
                 strip.gain = strip_data.layers[0] / 100.0
                 strip.is_virtual = (i >= phys_in)
                 strip.a1 = bool(strip_data.state & State.MODE_BUSA1)
@@ -212,6 +163,8 @@ class VoicemeeterRemote:
                 bus = self._all_buses[i]
                 bus.label = bus_data.label
                 bus.mute = bool(bus_data.state & State.MODE_MUTE)
+                bus.mono = bool(bus_data.state & State.MODE_MONO)
+                bus.mode = BusMode((int(bus_data.state) & int(State.MODE_MASK)) >> 4)
                 bus.gain = bus_data.gain / 100.0
                 bus.is_virtual = (i >= phys_out)
 

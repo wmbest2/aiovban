@@ -7,6 +7,21 @@ class VoicemeeterType(Enum):
     POTATO = 3
 
 
+class BusMode(Enum):
+    NORMAL = 0
+    MIXDOWN_A = 1
+    MIXDOWN_B = 2
+    REPEAT = 3
+    COMPOSITE = 4
+    UPMIX_TV = 5
+    UPMIX_2_1 = 6
+    UPMIX_4_1 = 7
+    UPMIX_6_1 = 8
+    CENTER_ONLY = 9
+    LFE_ONLY = 10
+    REAR_ONLY = 11
+
+
 class VBANSampleRate(Enum):
     RATE_6000 = 0, 6000
     RATE_8000 = 7, 8000

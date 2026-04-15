@@ -1,10 +1,10 @@
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock
 from aiovban.asyncio.voicemeeter import VoicemeeterRemote, VoicemeeterStrip, VoicemeeterBus
 from aiovban.enums import VoicemeeterType, BusMode, State
 from aiovban.packet.body.service.rt_packets import RTPacketBodyType0, RTPacketBodyType1, Strip, Bus, StripParam
 
-class TestVoicemeeterPackage(unittest.TestCase):
+class TestVoicemeeterPackage(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.mock_device = MagicMock()
         self.remote = VoicemeeterRemote(self.mock_device)
@@ -149,6 +149,24 @@ class TestVoicemeeterPackage(unittest.TestCase):
         self.assertTrue(strip.comp_params.auto)
         self.assertTrue(strip.pitch_params.enabled)
         self.assertAlmostEqual(strip.pitch_params.drywet, 0.5)
+
+    async def test_complex_setters(self):
+        """Test that complex setters call the correct remote commands."""
+        # We need a real remote to test this as it sends to the mock device
+        # but we can mock the remote.send_command or just verify strip._set_param
+        strip = self.remote._all_strips[0]
+
+        # Manually mock the device send_datagram if needed, but easier to mock remote.send_command
+        self.remote.send_command = AsyncMock()
+
+        await strip.set_comp_param("Threshold", -20.0)
+        self.remote.send_command.assert_called_with("Strip[0].Comp.Threshold=-20.0;")
+
+        await strip.set_eq_band_param(1, "On", True)
+        self.remote.send_command.assert_called_with("Strip[0].EQ.Band[0].On=1;")
+
+        await strip.set_eq_low(5.5)
+        self.remote.send_command.assert_called_with("Strip[0].EqGain1=5.5;")
 
 if __name__ == "__main__":
     unittest.main()

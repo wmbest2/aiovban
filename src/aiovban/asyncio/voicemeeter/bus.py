@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Any
 from .base import VoicemeeterBase
 from ...enums import BusMode, State
 from .params import EQParams
@@ -29,3 +30,8 @@ class VoicemeeterBus(VoicemeeterBase):
     async def set_solo(self, value: bool):
         """Set solo state."""
         await self._set_param("Solo", value)
+
+    # Generic complex parameter setters
+    async def set_eq_band_param(self, band: int, name: str, value: Any):
+        """Set a 6-band PEQ parameter (band 1-6)."""
+        await self._set_param(f"EQ.Band[{band-1}].{name}", value)

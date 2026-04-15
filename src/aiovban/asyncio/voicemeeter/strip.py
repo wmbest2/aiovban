@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Any
 from .base import VoicemeeterBase
 from ...enums import State
 from .params import EQParams, CompressorParams, GateParams, PitchParams, PEQBand
@@ -58,3 +59,33 @@ class VoicemeeterStrip(VoicemeeterBase):
     async def set_bus_routing(self, bus: str, value: bool):
         """Set routing to A1, B1, etc."""
         await self._set_param(bus.upper(), value)
+
+    # Simple 3-band EQ
+    async def set_eq_low(self, value: float):
+        """Set simple EQ Low gain (-12.0 to 12.0)."""
+        await self._set_param("EqGain1", max(-12.0, min(12.0, value)))
+
+    async def set_eq_mid(self, value: float):
+        """Set simple EQ Mid gain (-12.0 to 12.0)."""
+        await self._set_param("EqGain2", max(-12.0, min(12.0, value)))
+
+    async def set_eq_high(self, value: float):
+        """Set simple EQ High gain (-12.0 to 12.0)."""
+        await self._set_param("EqGain3", max(-12.0, min(12.0, value)))
+
+    # Generic complex parameter setters
+    async def set_comp_param(self, name: str, value: Any):
+        """Set a compressor parameter (e.g., 'Threshold', 'Attack', 'Ratio')."""
+        await self._set_param(f"Comp.{name}", value)
+
+    async def set_gate_param(self, name: str, value: Any):
+        """Set a gate parameter (e.g., 'Threshold', 'Attack', 'Release')."""
+        await self._set_param(f"Gate.{name}", value)
+
+    async def set_pitch_param(self, name: str, value: Any):
+        """Set a pitch shifter parameter (e.g., 'DryWet', 'Value')."""
+        await self._set_param(f"Pitch.{name}", value)
+
+    async def set_eq_band_param(self, band: int, name: str, value: Any):
+        """Set a 6-band PEQ parameter (band 1-6)."""
+        await self._set_param(f"EQ.Band[{band-1}].{name}", value)

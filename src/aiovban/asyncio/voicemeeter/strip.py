@@ -1,20 +1,32 @@
 from dataclasses import dataclass, field
 from .base import VoicemeeterBase
+from ...enums import State
+from .params import EQParams, CompressorParams, GateParams, PitchParams, PEQBand
 
 @dataclass
 class VoicemeeterStrip(VoicemeeterBase):
     solo: bool = False
+    eq: bool = False
     compressor: float = 0.0
     gate: float = 0.0
     denoiser: float = 0.0
     levels: list[float] = field(default_factory=list)
+    state: State = State(0)
     mc: bool = False
     a1: bool = False
     a2: bool = False
     a3: bool = False
+    a4: bool = False
+    a5: bool = False
     b1: bool = False
     b2: bool = False
     b3: bool = False
+
+    # Expanded parameters from RT Type 1
+    eq_params: EQParams = field(default_factory=EQParams)
+    comp_params: CompressorParams = field(default_factory=CompressorParams)
+    gate_params: GateParams = field(default_factory=GateParams)
+    pitch_params: PitchParams = field(default_factory=PitchParams)
 
     @property
     def identifier(self) -> str:
@@ -22,6 +34,10 @@ class VoicemeeterStrip(VoicemeeterBase):
 
     async def set_solo(self, value: bool):
         await self._set_param("Solo", value)
+
+    async def set_eq(self, value: bool):
+        """Set EQ state."""
+        await self._set_param("EQ", value)
 
     async def set_compressor(self, value: float):
         """Set compressor knob (0.0 to 10.0)."""

@@ -49,12 +49,18 @@ class VBANPacket:
                     header, Ping.unpack(body_data), timestamp=time.time_ns()
                 )
             elif header.service == ServiceType.RTPacket:
-                from .body.service import RTPacketBodyType0
+                from .body.service import RTPacketBodyType0, RTPacketBodyType1
 
                 if header.function == 0x00:
                     return VBANPacket(
                         header,
                         RTPacketBodyType0.unpack(body_data),
+                        timestamp=time.time_ns(),
+                    )
+                elif header.function == 0x01:
+                    return VBANPacket(
+                        header,
+                        RTPacketBodyType1.unpack(body_data),
                         timestamp=time.time_ns(),
                     )
             elif header.service == ServiceType.Chat_UTF8:

@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock
 from aiovban.asyncio.voicemeeter import VoicemeeterRemote, VoicemeeterStrip, VoicemeeterBus
 from aiovban.enums import VoicemeeterType, BusMode, State
-from aiovban.packet.body.service.rt_packets import RTPacketBodyType0, Strip, Bus
+from aiovban.packet.body.service.rt_packets import RTPacketBodyType0, RTPacketBodyType1, Strip, Bus, StripParam
 
 class TestVoicemeeterPackage(unittest.TestCase):
     def setUp(self):
@@ -97,6 +97,58 @@ class TestVoicemeeterPackage(unittest.TestCase):
         # Check Bus 1
         self.assertFalse(self.remote._all_buses[1].mono)
         self.assertEqual(self.remote._all_buses[1].mode, BusMode.NORMAL)
+
+    def test_apply_rt_packet_type1(self):
+        """Test that apply_rt_packet_type1 correctly syncs knobs and EQ."""
+        body = MagicMock(spec=RTPacketBodyType1)
+        body.voice_meeter_type = VoicemeeterType.POTATO
+        body.voice_meeter_version = "3.0.1.1"
+        body.transport_bits = 0x01 # playing
+        
+        mock_strip_params = []
+        for i in range(8):
+            s = MagicMock(spec=StripParam)
+            s.mode = int(State.MODE_MONO | State.MODE_EQ | State.MODE_BUSA1 | State.MODE_BUSA5)
+            s.dblevel = -1050.0 # -10.5 dB
+            s.audibility_c = 50 # 5.0
+            s.audibility_g = 25 # 2.5
+            s.audibility_d = 10 # 1.0
+            s.eqgain = [1, 2, 3]
+            s.peq_on = [1] * 6
+            s.peq_type = [0] * 6
+            s.peq_gain = [0.0] * 6
+            s.peq_freq = [1000.0] * 6
+            s.peq_q = [1.0] * 6
+            s.comp = {"gain_in": 0, "attack": 0, "release": 0, "knee": 0, "ratio": 0, "threshold": 0, "enabled": 1, "auto": 1, "gain_out": 0}
+            s.gate = {"threshold": 0, "damping": 0, "sidechain": 0, "attack": 0, "hold": 0, "release": 0}
+            s.pitch = {"enabled": 1, "drywet": 50, "value": 0, "lo": 0, "med": 0, "high": 0}
+            mock_strip_params.append(s)
+        body.strips = mock_strip_params
+
+        self.remote.apply_rt_packet_type1(body)
+
+        self.assertTrue(self.remote.recorder_playing)
+        strip = self.remote._all_strips[0]
+        self.assertTrue(strip.mono)
+        self.assertTrue(strip.eq)
+        self.assertTrue(strip.a1)
+        self.assertTrue(strip.a5)
+        self.assertAlmostEqual(strip.gain, -10.5)
+        self.assertAlmostEqual(strip.compressor, 5.0)
+        self.assertAlmostEqual(strip.gate, 2.5)
+        self.assertAlmostEqual(strip.denoiser, 1.0)
+        
+        self.assertEqual(strip.eq_params.low, 1)
+        self.assertEqual(strip.eq_params.mid, 2)
+        self.assertEqual(strip.eq_params.high, 3)
+        self.assertEqual(len(strip.eq_params.bands), 6)
+        self.assertTrue(strip.eq_params.bands[0].enabled)
+        self.assertEqual(strip.eq_params.bands[0].freq, 1000.0)
+        
+        self.assertTrue(strip.comp_params.enabled)
+        self.assertTrue(strip.comp_params.auto)
+        self.assertTrue(strip.pitch_params.enabled)
+        self.assertAlmostEqual(strip.pitch_params.drywet, 0.5)
 
 if __name__ == "__main__":
     unittest.main()

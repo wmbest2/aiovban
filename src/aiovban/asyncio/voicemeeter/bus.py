@@ -1,13 +1,18 @@
 from dataclasses import dataclass, field
 from .base import VoicemeeterBase
-from ...enums import BusMode
+from ...enums import BusMode, State
+from .params import EQParams
 
 @dataclass
 class VoicemeeterBus(VoicemeeterBase):
     mode: BusMode = BusMode.NORMAL
     levels: list[float] = field(default_factory=list)
+    state: State = State(0)
     eq: bool = False
     solo: bool = False
+
+    # Expanded parameters from RT Type 2
+    eq_params: EQParams = field(default_factory=EQParams)
 
     @property
     def identifier(self) -> str:

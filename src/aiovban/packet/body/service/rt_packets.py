@@ -197,3 +197,133 @@ class RTPacketBodyType0(PacketBody):
             + strip_names_bytes
             + bus_names_bytes
         )
+
+@dataclass
+class StripParam:
+    mode: int
+    dblevel: float
+    audibility: int
+    pos3d: tuple[int, int]
+    poscolor: tuple[int, int]
+    eqgain: list[int]
+    peq_on: list[int]
+    peq_type: list[int]
+    peq_gain: list[float]
+    peq_freq: list[float]
+    peq_q: list[float]
+    audibility_c: int
+    audibility_g: int
+    audibility_d: int
+    posmod: tuple[int, int]
+    send: list[int]
+    dblimit: int
+    nkaraoke: int
+    comp: dict
+    gate: dict
+    denoiser: int
+    pitch: dict
+
+
+@dataclass
+class RTPacketBodyType1(PacketBody):
+    voice_meeter_type: VoicemeeterType
+    buffer_size: int
+    voice_meeter_version: str
+    sample_rate: VBANSampleRate
+    transport_bits: int
+    strips: list[StripParam]
+
+    @classmethod
+    def versionFromBytes(cls, data):
+        return f"{data[4]}.{data[5]}.{data[6]}.{data[7]}"
+
+    @classmethod
+    def unpack(cls, data):
+        try:
+            strips = []
+            for n in range(8):
+                offset = 16 + (n * 174)
+                s_data = data[offset : offset + 174]
+                
+                # Unpack the fixed part (24 bytes)
+                fixed = struct.unpack("<Lfhhhhhhhh", s_data[0:24])
+                
+                # Unpack PEQ part (84 bytes)
+                peq_on = list(struct.unpack("<BBBBBB", s_data[24:30]))
+                peq_type = list(struct.unpack("<BBBBBB", s_data[30:36]))
+                peq_gain = list(struct.unpack("<ffffff", s_data[36:60]))
+                peq_freq = list(struct.unpack("<ffffff", s_data[60:84]))
+                peq_q = list(struct.unpack("<ffffff", s_data[84:108]))
+                
+                # Unpack the rest (66 bytes)
+                # 108: 11 shorts (22 bytes) -> 130
+                # 130: Compressor (9 shorts, 18 bytes) -> 148
+                # 148: Gate (6 shorts, 12 bytes) -> 160
+                # 160: Denoiser (1 short, 2 bytes) -> 162
+                # 162: Pitch (6 shorts, 12 bytes) -> 174
+                rest = struct.unpack("<hhhhhhhhhhh hhhhhhhhh hhhhhh h hhhhhh", s_data[108:174])
+                
+                strip = StripParam(
+                    mode=fixed[0],
+                    dblevel=fixed[1],
+                    audibility=fixed[2],
+                    pos3d=(fixed[3], fixed[4]),
+                    poscolor=(fixed[5], fixed[6]),
+                    eqgain=[fixed[7], fixed[8], fixed[9]],
+                    peq_on=peq_on,
+                    peq_type=peq_type,
+                    peq_gain=peq_gain,
+                    peq_freq=peq_freq,
+                    peq_q=peq_q,
+                    audibility_c=rest[0],
+                    audibility_g=rest[1],
+                    audibility_d=rest[2],
+                    posmod=(rest[3], rest[4]),
+                    send=[rest[5], rest[6], rest[7], rest[8]],
+                    dblimit=rest[9],
+                    nkaraoke=rest[10],
+                    comp={
+                        "gain_in": rest[11],
+                        "attack": rest[12],
+                        "release": rest[13],
+                        "knee": rest[14],
+                        "ratio": rest[15],
+                        "threshold": rest[16],
+                        "enabled": rest[17],
+                        "auto": rest[18],
+                        "gain_out": rest[19],
+                    },
+                    gate={
+                        "threshold": rest[20],
+                        "damping": rest[21],
+                        "sidechain": rest[22],
+                        "attack": rest[23],
+                        "hold": rest[24],
+                        "release": rest[25],
+                    },
+                    denoiser=rest[26],
+                    pitch={
+                        "enabled": rest[27],
+                        "drywet": rest[28],
+                        "value": rest[29],
+                        "lo": rest[30],
+                        "med": rest[31],
+                        "high": rest[32],
+                    }
+                )
+                strips.append(strip)
+
+            return RTPacketBodyType1(
+                voice_meeter_type=VoicemeeterType(data[0]),
+                buffer_size=struct.unpack("<H", data[2:4])[0],
+                voice_meeter_version=cls.versionFromBytes(data),
+                sample_rate=VBANSampleRate.find(struct.unpack("<L", data[12:16])[0]),
+                transport_bits=data[8],
+                strips=strips
+            )
+        except (struct.error, ValueError) as e:
+            raise ValueError(f"Failed to unpack RT packet type 1: {e}")
+
+    def pack(self):
+        # Implementation of pack for Type 1 if needed
+        raise NotImplementedError("Packing Type 1 RT packets is not implemented")

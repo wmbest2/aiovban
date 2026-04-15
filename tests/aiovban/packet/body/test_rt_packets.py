@@ -1,9 +1,10 @@
 import unittest
 import random
+import struct
 
 
 from aiovban.enums import VBANSampleRate, State, VoicemeeterType
-from aiovban.packet.body.service.rt_packets import RTPacketBodyType0, Bus, Strip
+from aiovban.packet.body.service.rt_packets import RTPacketBodyType0, RTPacketBodyType1, Bus, Strip, StripParam
 
 
 def random_unsigned_shorts(count):
@@ -109,6 +110,36 @@ class TestRTPacketBodyType0(unittest.TestCase):
             self.assertEqual(
                 unpacked_rt_packet.buses[i].gain, self.sample_data["buses"][i].gain
             )
+
+
+class TestRTPacketBodyType1(unittest.TestCase):
+    def test_unpack_type1(self):
+        # Create a mock Type 1 packet (16 bytes header + 8 * 174 bytes strips = 1408 bytes)
+        # Header: Type(1), res(0), buf(512), ver(2.0.0.0), opt(0), rate(48000)
+        header = struct.pack("<BBHLL L", 1, 0, 512, 0x02000000, 0, 48000)
+        
+        # One strip (174 bytes)
+        # fixed (24): mode(L), dblevel(f), 8x shorts(h)
+        strip_fixed = struct.pack("<Lfhhhhhhhh", 0x01, -1050.0, 100, 0, 0, 0, 0, 0, 0, 0)
+        # peq (84): 6x peq_on(B), 6x peq_type(B), 6x peq_gain(f), 6x peq_freq(f), 6x peq_q(f)
+        peq = struct.pack("<" + "B"*6 + "B"*6 + "f"*6 + "f"*6 + "f"*6,
+                          *[1]*6, *[0]*6, *[0.0]*6, *[1000.0]*6, *[1.0]*6)
+        # rest (66): 33 shorts
+        rest = struct.pack("<" + "h"*33, *[0]*33)
+        
+        strip_data = strip_fixed + peq + rest
+        self.assertEqual(len(strip_data), 174)
+        
+        full_data = header + (strip_data * 8)
+        self.assertEqual(len(full_data), 1408)
+        
+        unpacked = RTPacketBodyType1.unpack(full_data)
+        
+        self.assertEqual(unpacked.voice_meeter_type, VoicemeeterType.VOICEMEETER)
+        self.assertEqual(len(unpacked.strips), 8)
+        self.assertEqual(unpacked.strips[0].mode, 0x01)
+        self.assertAlmostEqual(unpacked.strips[0].dblevel, -1050.0)
+        self.assertEqual(unpacked.strips[0].peq_freq[0], 1000.0)
 
 
 if __name__ == "__main__":

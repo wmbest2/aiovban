@@ -13,6 +13,7 @@ from ...packet.headers.text import VBANTextHeader, VBANTextStreamType
 
 from .strip import VoicemeeterStrip
 from .bus import VoicemeeterBus
+from .params import EQParams, CompressorParams, GateParams, PitchParams, PEQBand
 
 logger = logging.getLogger(__package__)
 
@@ -232,6 +233,8 @@ class VoicemeeterRemote:
                 strip.a1 = bool(strip_data.state & State.MODE_BUSA1)
                 strip.a2 = bool(strip_data.state & State.MODE_BUSA2)
                 strip.a3 = bool(strip_data.state & State.MODE_BUSA3)
+                strip.a4 = bool(strip_data.state & State.MODE_BUSA4)
+                strip.a5 = bool(strip_data.state & State.MODE_BUSA5)
                 strip.b1 = bool(strip_data.state & State.MODE_BUSB1)
                 strip.b2 = bool(strip_data.state & State.MODE_BUSB2)
                 strip.b3 = bool(strip_data.state & State.MODE_BUSB3)
@@ -264,6 +267,10 @@ class VoicemeeterRemote:
         self.type = body.voice_meeter_type
         self.version = body.voice_meeter_version
         self.last_update = time.time()
+        
+        self.recorder_playing = bool(body.transport_bits & 0x01)
+        self.recorder_recording = bool(body.transport_bits & 0x02)
+        self.recorder_paused = bool(body.transport_bits & 0x08)
 
         for i, strip_param in enumerate(body.strips):
             if i < len(self._all_strips):
@@ -275,12 +282,65 @@ class VoicemeeterRemote:
                 strip.solo = bool(strip.state & State.MODE_SOLO)
                 strip.mono = bool(strip.state & State.MODE_MONO)
                 strip.mc = bool(strip.state & State.MODE_MUTEC)
+                strip.eq = bool(strip.state & State.MODE_EQ)
                 strip.a1 = bool(strip.state & State.MODE_BUSA1)
                 strip.a2 = bool(strip.state & State.MODE_BUSA2)
                 strip.a3 = bool(strip.state & State.MODE_BUSA3)
+                strip.a4 = bool(strip.state & State.MODE_BUSA4)
+                strip.a5 = bool(strip.state & State.MODE_BUSA5)
                 strip.b1 = bool(strip.state & State.MODE_BUSB1)
                 strip.b2 = bool(strip.state & State.MODE_BUSB2)
                 strip.b3 = bool(strip.state & State.MODE_BUSB3)
+
+                # Map Knobs
+                strip.compressor = strip_param.audibility_c / 10.0
+                strip.gate = strip_param.audibility_g / 10.0
+                strip.denoiser = strip_param.audibility_d / 10.0
+
+                # Map complex parameters
+                strip.eq_params.low = strip_param.eqgain[0]
+                strip.eq_params.mid = strip_param.eqgain[1]
+                strip.eq_params.high = strip_param.eqgain[2]
+                
+                strip.eq_params.bands = []
+                for b in range(6):
+                    strip.eq_params.bands.append(PEQBand(
+                        enabled=bool(strip_param.peq_on[b]),
+                        type=strip_param.peq_type[b],
+                        gain=strip_param.peq_gain[b],
+                        freq=strip_param.peq_freq[b],
+                        q=strip_param.peq_q[b]
+                    ))
+
+                strip.comp_params = CompressorParams(
+                    gain_in=strip_param.comp["gain_in"] / 100.0,
+                    attack=strip_param.comp["attack"] / 10.0,
+                    release=strip_param.comp["release"] / 10.0,
+                    knee=strip_param.comp["knee"] / 100.0,
+                    ratio=strip_param.comp["ratio"] / 100.0,
+                    threshold=strip_param.comp["threshold"] / 100.0,
+                    enabled=bool(strip_param.comp["enabled"]),
+                    auto=bool(strip_param.comp["auto"]),
+                    gain_out=strip_param.comp["gain_out"] / 100.0
+                )
+
+                strip.gate_params = GateParams(
+                    threshold=strip_param.gate["threshold"] / 100.0,
+                    damping=strip_param.gate["damping"] / 100.0,
+                    sidechain=strip_param.gate["sidechain"] / 10.0,
+                    attack=strip_param.gate["attack"] / 10.0,
+                    hold=strip_param.gate["hold"] / 10.0,
+                    release=strip_param.gate["release"] / 10.0
+                )
+
+                strip.pitch_params = PitchParams(
+                    enabled=bool(strip_param.pitch["enabled"]),
+                    drywet=strip_param.pitch["drywet"] / 100.0,
+                    value=strip_param.pitch["value"] / 100.0,
+                    lo=strip_param.pitch["lo"] / 100.0,
+                    med=strip_param.pitch["med"] / 100.0,
+                    high=strip_param.pitch["high"] / 100.0
+                )
                 
         for callback in self._callbacks:
             try:
